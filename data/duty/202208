@@ -1,0 +1,40 @@
+# $Id: 202208,v 1.1.1.1 2022/07/26 08:09:08 root Exp $
+[ Names ]
+# System Administrators' names:
+1:Леонов А.:+
+2:Чорний О.:
+3:Тiмошенко О.:
+4:Русскiх О.:+
+[ Dates ]
+# day	Adm_1	Adm_2	Adm_3	Adm_4	Adm_5
+1  Mo	W	-	D	O
+2  Tu	W	-	D	O
+3  We	W	D	-	O
+4  Th	W	D	-	O
+5  Fr	W	-	D	O
+6  Sa	-	-	D	O
+7  Su	-	D	-	O
+8  Mo	W	D	-	O
+9  Tu	W	-	D	O
+10 We	W	-	D	O
+11 Th	W	D	-	O
+12 Fr	W	D	-	O
+13 Sa	-	-	D	O
+14 Su	-	-	D	O
+15 Mo	W	D	-	O
+16 Tu	W	D	-	O
+17 We	W	-	D	O
+18 Th	W	-	D	O
+19 Fr	W	D	-	O
+20 Sa	-	D	-	O
+21 Su	-	-	D	O
+22 Mo	W	-	D	W
+23 Tu	W	D	-	W
+24 We	W	D	-	W
+25 Th	W	-	D	W
+26 Fr	W	-	D	W
+27 Sa	-	D	-	-
+28 Su	-	D	-	-
+29 Mo	W	-	D	W
+30 Tu	W	-	D	W
+31 We	W	D	-	W
