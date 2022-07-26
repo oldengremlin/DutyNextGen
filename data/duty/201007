@@ -1,0 +1,39 @@
+[ Names ]
+# System Administrators' names:
+1:Мороз Н.
+2:Лисный В.
+3:Русских А.
+4:Коренко Т.
+[ Dates ]
+# day	Adm_1	Adm_2	Adm_3	Adm_4
+1  Th	-	O	D	W
+2  Fr	W	O	-	D
+3  Sa	D	O	-	-
+4  Su	-	O	D	-
+5  Mo	-	W	-	D
+6  Tu	D	W	W	-
+7  We	W	D	W	W
+8  Th	-	-	D	W
+9  Fr	W	D	-	-
+10 Sa	D	-	-	-
+11 Su	-	-	-	D
+12 Mo	W	-	D	W
+13 Tu	-	W	-	D
+14 We	D	W	W	-
+15 Th	-	D	W	W
+16 Fr	-	-	D	W
+17 Sa	-	-	-	D
+18 Su	D	-	-	-
+19 Mo	D	-	W	-
+20 Tu	-	W	D	W
+21 We	W	W	-	D
+22 Th	W	D	W	-
+23 Fr	W	D	W	W
+24 Sa	-	-	D	-
+25 Su	-	-	-	D
+26 Mo	D	W	-	-
+27 Tu	W	D	W	W
+28 We	W	-	D	W
+29 Th	-	W	-	D
+30 Fr	-	D	W	-
+31 Sa	-	D	-	-
