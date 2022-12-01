@@ -1,4 +1,4 @@
-# $Id: 202212,v 1.5 2022/12/01 10:31:32 olden Exp $
+# $Id: 202212,v 1.6 2022/12/01 10:34:22 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -8,7 +8,7 @@
 [ Dates ]
 # day	Adm_1	Adm_2	Adm_3	Adm_4
 1  Th	W	D	-	W
-2  Fr	-	D	-	W
+2  Fr	-	D	W	W
 3  Sa	D	-	-	-
 4  Su	-	-	D	-
 5  Mo	-	D	-	W
@@ -36,5 +36,5 @@
 27 Tu	W	-	D	W
 28 We	W	-	D	W
 29 Th	W	D	-	W
-30 Fr	-	D	-	W
+30 Fr	-	D	W	W
 31 Sa	D	-	-	-
