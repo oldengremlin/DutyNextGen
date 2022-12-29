@@ -1,4 +1,4 @@
-# $Id: 202301,v 1.5 2022/12/21 07:34:29 olden Exp $
+# $Id: 202301,v 1.6 2022/12/29 08:46:45 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -7,34 +7,34 @@
 4:Русскiх О.:+
 [ Dates ]
 # day	Adm_1	Adm_2	Adm_3	Adm_4
-1  Su	O	D	-	-
-2  Mo	W	-	D	W
-3  Tu	W	-	D	W
-4  We	W	D	-	W
-5  Th	W	D	-	W
-6  Fr	W	-	D	W
-7  Sa	-	-	D	-
-8  Su	-	D	-	-
-9  Mo	W	D	-	W
-10 Tu	W	-	D	W
-11 We	W	-	D	W
-12 Th	W	D	-	W
-13 Fr	W	D	-	W
-14 Sa	-	-	D	-
-15 Su	-	-	D	-
-16 Mo	W	D	-	W
-17 Tu	W	D	-	W
-18 We	W	-	D	W
-19 Th	W	-	D	W
-20 Fr	W	D	-	W
-21 Sa	-	D	-	-
-22 Su	-	-	D	-
-23 Mo	W	-	D	W
-24 Tu	W	D	-	W
-25 We	W	D	-	W
-26 Th	W	-	D	W
-27 Fr	W	-	D	W
-28 Sa	-	D	-	-
-29 Su	-	D	-	-
-30 Mo	W	-	D	W
-31 Tu	W	-	D	W
+1  Su	O	-	D	-
+2  Mo	W	D	-	W
+3  Tu	W	D	-	W
+4  We	W	-	D	W
+5  Th	W	-	D	W
+6  Fr	W	D	-	W
+7  Sa	-	D	-	-
+8  Su	-	-	D	-
+9  Mo	W	-	D	W
+10 Tu	W	D	-	W
+11 We	W	D	-	W
+12 Th	W	-	D	W
+13 Fr	W	-	D	W
+14 Sa	-	D	-	-
+15 Su	-	D	-	-
+16 Mo	W	-	D	W
+17 Tu	W	-	D	W
+18 We	W	D	-	W
+19 Th	W	D	-	W
+20 Fr	W	-	D	W
+21 Sa	-	-	D	-
+22 Su	-	D	-	-
+23 Mo	W	D	-	W
+24 Tu	W	-	D	W
+25 We	W	-	D	W
+26 Th	W	D	-	W
+27 Fr	W	D	-	W
+28 Sa	-	-	D	-
+29 Su	-	-	D	-
+30 Mo	W	D	-	W
+31 Tu	W	D	-	W
