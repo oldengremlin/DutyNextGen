@@ -1,4 +1,4 @@
-# $Id: 202301,v 1.7 2022/12/29 09:46:50 olden Exp $
+# $Id: 202301,v 1.8 2022/12/29 09:47:30 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -15,13 +15,13 @@
 6  Fr	W	D	-	W
 7  Sa	-	D	-	-
 8  Su	-	-	D	-
-9  Mo	D	-	-	W
-10 Tu	-	D	-	W
-11 We	-	D	-	W
-12 Th	D	-	-	W
-13 Fr	D	-	-	W
-14 Sa	--	D	-	-
-15 Su	--	D	-	-
+9  Mo	D	-	O	W
+10 Tu	-	D	O	W
+11 We	-	D	O	W
+12 Th	D	-	O	W
+13 Fr	D	-	O	W
+14 Sa	--	D	O	-
+15 Su	--	D	O	-
 16 Mo	W	-	D	W
 17 Tu	W	-	D	W
 18 We	W	D	-	W
