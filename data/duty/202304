@@ -1,4 +1,4 @@
-# $Id: 202304,v 1.2 2023/03/16 11:28:59 olden Exp $
+# $Id: 202304,v 1.3 2023/03/16 11:34:35 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -7,20 +7,20 @@
 4:Русскiх О.:+
 [ Dates ]
 # day	Adm_1	Adm_2	Adm_3	Adm_4
-1  Sa	D	-	-	-
-2  Su	-	D	-	-
-3  Mo	-	D	-	W
-4  Tu	D	-	-	W
-5  We	D	-	-	W
-6  Th	-	D	-	W
-7  Fr	-	D	-	W
-8  Sa	D	-	-	-
-9  Su	D	-	-	-
-10 Mo	-	D	-	W
-11 Tu	-	D	-	W
-12 We	D	-	-	W
-13 Th	D	-	-	W
-14 Fr	-	D	-	W
+1  Sa	D	-	i	-
+2  Su	-	D	я	-
+3  Mo	-	D	с	W
+4  Tu	D	-	е	W
+5  We	D	-	с	W
+6  Th	-	D	i	W
+7  Fr	-	D	я	W
+8  Sa	D	-	с	-
+9  Su	D	-	е	-
+10 Mo	-	D	с	W
+11 Tu	-	D	i	W
+12 We	D	-	я	W
+13 Th	D	-	с	W
+14 Fr	-	D	е	W
 15 Sa	-	D	-	-
 16 Su	-	-	D	-
 17 Mo	W	-	D	W
