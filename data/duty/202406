@@ -1,4 +1,4 @@
-# $Id: 202406,v 1.2 2024/05/31 07:28:02 olden Exp $
+# $Id: 202406,v 1.3 2024/05/31 07:31:32 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -17,13 +17,13 @@
 7  Fr	W	D	-	W	W
 8  Sa	-	D	-	-	-
 9  Su	-	-	D	-	-
-10 Mo	W	-	D	W	W
-11 Tu	W	D	-	W	W
-12 We	W	D	-	W	W
-13 Th	W	-	D	W	W
-14 Fr	W	-	D	W	W
-15 Sa	-	D	-	-	-
-16 Su	-	D	-	-	-
+10 Mo	-	O	D	W	W
+11 Tu	D	O	-	W	W
+12 We	D	O	-	W	W
+13 Th	-	O	D	W	W
+14 Fr	-	O	D	W	W
+15 Sa	D	O	-	-	-
+16 Su	D	O	-	-	-
 17 Mo	W	-	D	W	W
 18 Tu	W	-	D	W	W
 19 We	W	-	D	W	W
