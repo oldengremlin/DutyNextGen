@@ -1,4 +1,4 @@
-# $Id: 202407,v 1.3 2024/06/19 07:05:49 olden Exp $
+# $Id: 202407,v 1.4 2024/06/19 07:07:16 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -8,34 +8,34 @@
 5:Кузнецов Л.:+
 [ Dates ]
 # day	Adm_1	Adm_2	Adm_3	Adm_4	Adm_5
-1  Mo	W	-	D	W	W
-2  Tu	W	-	D	W	W
-3  We	W	D	-	W	W
-4  Th	W	D	-	W	W
-5  Fr	W	-	D	W	W
-6  Sa	-	-	D	-	-
-7  Su	-	D	-	-	-
-8  Mo	W	D	-	W	W
-9  Tu	W	-	D	W	W
-10 We	W	-	D	W	W
-11 Th	W	D	-	W	W
-12 Fr	W	D	-	W	W
-13 Sa	-	-	D	-	-
-14 Su	-	-	D	-	-
-15 Mo	W	D	-	W	W
-16 Tu	W	D	-	W	W
-17 We	W	-	D	W	W
-18 Th	W	-	D	W	W
-19 Fr	W	D	-	W	W
-20 Sa	-	D	-	-	-
-21 Su	-	-	D	-	-
-22 Mo	W	-	D	W	W
-23 Tu	W	D	-	W	W
-24 We	W	D	-	W	W
-25 Th	W	-	D	W	W
-26 Fr	W	-	D	W	W
-27 Sa	-	D	-	-	-
-28 Su	-	D	-	-	-
-29 Mo	W	-	D	W	W
-30 Tu	W	-	D	W	W
-31 We	W	D	-	W	W
+1  Mo	D	-	O	W	W
+2  Tu	D	-	O	W	W
+3  We	-	D	O	W	W
+4  Th	-	D	O	W	W
+5  Fr	D	-	O	W	W
+6  Sa	D	-	O	-	-
+7  Su	-	D	O	-	-
+8  Mo	-	D	O	W	W
+9  Tu	D	-	O	W	W
+10 We	D	-	O	W	W
+11 Th	-	D	O	W	W
+12 Fr	-	D	O	W	W
+13 Sa	D	-	O	-	-
+14 Su	D	-	O	-	-
+15 Mo	-	D	O	W	W
+16 Tu	-	D	O	W	W
+17 We	D	-	O	W	W
+18 Th	D	-	O	W	W
+19 Fr	-	D	O	W	W
+20 Sa	-	D	O	-	-
+21 Su	D	-	O	-	-
+22 Mo	D	-	O	W	W
+23 Tu	-	D	O	W	W
+24 We	-	D	O	W	W
+25 Th	D	-	O	W	W
+26 Fr	D	-	O	W	W
+27 Sa	-	D	O	-	-
+28 Su	-	D	O	-	-
+29 Mo	D	-	O	W	W
+30 Tu	D	-	O	W	W
+31 We	-	D	O	W	W
