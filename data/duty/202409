@@ -1,0 +1,40 @@
+# $Id: 202409,v 1.1 2024/08/01 02:00:03 noc Exp $
+[ Names ]
+# System Administrators' names:
+1:Леонов А.:+
+2:Чорний О.:
+3:Тiмошенко О.:
+4:Кулинич А.:+
+5:Кузнецов Л.:+
+[ Dates ]
+# day	Adm_1	Adm_2	Adm_3	Adm_4	Adm_5
+1  Su	-	D	-	-	-
+2  Mo	W	-	D	W	W
+3  Tu	W	D	-	W	W
+4  We	W	-	D	W	W
+5  Th	W	D	-	W	W
+6  Fr	W	-	D	W	W
+7  Sa	-	D	-	-	-
+8  Su	-	-	D	-	-
+9  Mo	W	D	-	W	W
+10 Tu	W	-	D	W	W
+11 We	W	D	-	W	W
+12 Th	W	-	D	W	W
+13 Fr	W	D	-	W	W
+14 Sa	-	-	D	-	-
+15 Su	-	D	-	-	-
+16 Mo	W	-	D	W	W
+17 Tu	W	D	-	W	W
+18 We	W	-	D	W	W
+19 Th	W	D	-	W	W
+20 Fr	W	-	D	W	W
+21 Sa	-	D	-	-	-
+22 Su	-	-	D	-	-
+23 Mo	W	D	-	W	W
+24 Tu	W	-	D	W	W
+25 We	W	D	-	W	W
+26 Th	W	-	D	W	W
+27 Fr	W	D	-	W	W
+28 Sa	-	-	D	-	-
+29 Su	-	D	-	-	-
+30 Mo	W	-	D	W	W
