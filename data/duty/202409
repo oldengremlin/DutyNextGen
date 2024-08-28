@@ -1,14 +1,14 @@
-# $Id: 202409,v 1.14 2024/08/28 06:19:00 olden Exp $
+# $Id: 202409,v 1.15 2024/08/28 07:20:43 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
-2:Чорний О.:+
+2:Чорний О.:
 3:Тiмошенко О.:
 4:Кулинич А.:
 5:Кузнєцов Л.:+
 [ Dates ]
 # day	Adm_1	Adm_2	Adm_3	Adm_4	Adm_5
-1  Su	-	-	-	D	-
+1  Su	-	I	-	D	-
 2  Mo	W	W	-	D	W
 3  Tu	W	W	D	-	W
 4  We	W	W	D	-	W
