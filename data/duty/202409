@@ -1,4 +1,4 @@
-# $Id: 202409,v 1.16 2024/08/28 07:34:57 olden Exp $
+# $Id: 202409,v 1.17 2024/08/29 07:40:33 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -38,3 +38,4 @@
 28 Sa	-	-	-	D	-
 29 Su	-	D	-	-	-
 30 Mo	W	D	W	-	W
+## ##	W	D	W	-	W
