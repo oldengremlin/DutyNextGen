@@ -1,4 +1,4 @@
-# $Id: 202504,v 1.1 2025/03/01 03:00:03 noc Exp $
+# $Id: 202504,v 1.2 2025/03/04 13:40:54 olden Exp $
 [ Names ]
 # System Administrators' names:
 1:Леонов А.:+
@@ -9,35 +9,35 @@
 # day	Adm_1	Adm_2	Adm_3	Adm_4
 1  Tu	W	D	-	W
 2  We	W	D	-	W
-3  Th	W	D	-	W
-4  Fr	W	D	-	W
-5  Sa	W	-	D	W
-6  Su	W	-	D	W
-7  Mo	W	D	-	W
-8  Tu	W	D	-	W
-9  We	W	-	D	W
-10 Th	W	-	D	W
-11 Fr	W	D	-	W
-12 Sa	W	D	-	W
-13 Su	W	-	D	W
-14 Mo	W	-	D	W
-15 Tu	W	D	-	W
-16 We	W	D	-	W
-17 Th	W	-	D	W
-18 Fr	W	-	D	W
-19 Sa	W	D	-	W
-20 Su	W	D	-	W
-21 Mo	W	-	D	W
-22 Tu	W	-	D	W
-23 We	W	D	-	W
-24 Th	W	D	-	W
-25 Fr	W	-	D	W
-26 Sa	W	-	D	W
-27 Su	W	D	-	W
-28 Mo	W	D	-	W
-29 Tu	W	-	D	W
-30 We	W	-	D	W
+3  Th	W	-	D	W
+4  Fr	W	-	D	W
+5  Sa	W	D	-	W
+6  Su	W	D	-	W
+7  Mo	W	-	D	W
+8  Tu	W	-	D	W
+9  We	W	D	-	W
+10 Th	W	D	-	W
+11 Fr	W	-	D	W
+12 Sa	W	-	D	W
+13 Su	W	D	-	W
+14 Mo	W	D	-	W
+15 Tu	W	-	D	W
+16 We	W	-	D	W
+17 Th	W	D	-	W
+18 Fr	W	D	-	W
+19 Sa	W	-	D	W
+20 Su	W	-	D	W
+21 Mo	W	D	-	W
+22 Tu	W	D	-	W
+23 We	W	-	D	W
+24 Th	W	-	D	W
+25 Fr	W	D	-	W
+26 Sa	W	D	-	W
+27 Su	W	-	D	W
+28 Mo	W	-	D	W
+29 Tu	W	D	-	W
+30 We	W	D	-	W
 [ LastDay0 ]
--- --	-	-	D	-
+-- --	-	D	-	-
 [ LastDay1 ]
--- --	-	-	D	-
+-- --	-	D	-	-
