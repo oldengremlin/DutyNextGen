@@ -94,6 +94,9 @@ public class UserAdminController {
     @PostMapping("/admin/users/{username}/role")
     public String changeRole(@PathVariable String username, @RequestParam Role role) {
         UserStore.StoredUser existing = requireUser(username);
+        if (existing.role() == Role.ADMIN && role != Role.ADMIN) {
+            requireNotLastAdmin();
+        }
         UserStore.writeUser(usersFile, username, existing.passwordHash(), role);
         return "redirect:/admin/users";
     }
@@ -111,10 +114,16 @@ public class UserAdminController {
 
     @PostMapping("/admin/users/{username}/delete")
     public String delete(@PathVariable String username, Principal principal) {
-        requireUser(username);
+        UserStore.StoredUser existing = requireUser(username);
         if (principal != null && principal.getName().equals(username)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Не можна видалити самого себе — увійди іншим адміністратором або скористайся CLI");
+        }
+        // Поки діє самозаборона вище, цю гілку через API не досягти
+        // (видаляти може лише інший адміністратор, який сам лишається) —
+        // явна перевірка тут навмисна, як захист про запас, а не заміна.
+        if (existing.role() == Role.ADMIN) {
+            requireNotLastAdmin();
         }
         UserStore.deleteUser(usersFile, username);
         return "redirect:/admin/users";
@@ -126,5 +135,16 @@ public class UserAdminController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Немає користувача '" + username + "'");
         }
         return user;
+    }
+
+    /** У системі завжди має лишатися хоча б один адміністратор. */
+    private void requireNotLastAdmin() {
+        long adminCount = UserStore.readUsers(usersFile).values().stream()
+                .filter(u -> u.role() == Role.ADMIN)
+                .count();
+        if (adminCount <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "У системі має лишатися хоча б один адміністратор");
+        }
     }
 }

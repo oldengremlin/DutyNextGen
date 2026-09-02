@@ -11,7 +11,13 @@
     <div class="toolbar">
         <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${prevYm})}">&larr; попередній</a>
         <h1 class="month-title" th:text="${monthLabel}">Місяць Рік</h1>
-        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${nextYm})}">наступний &rarr;</a>
+        <span style="display: flex; gap: 0.5rem;">
+            <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${nextYm})}">наступний &rarr;</a>
+            <form method="post" class="noprint" th:action="@{/logout}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn">Вийти</button>
+            </form>
+        </span>
     </div>
 
     <div th:if="${generationError != null}" class="edit-errors">

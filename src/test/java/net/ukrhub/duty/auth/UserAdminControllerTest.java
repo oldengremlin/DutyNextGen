@@ -155,6 +155,26 @@ class UserAdminControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "solo-admin", roles = "ADMIN")
+    void cannotDowngradeTheLastAdminsRole() throws Exception {
+        UserStore.writeUser(usersFile(), "solo-admin", "hash", Role.ADMIN);
+        UserStore.writeUser(usersFile(), "another-admin", "hash2", Role.ADMIN);
+        // Двоє адмінів — пониження когось із них поки безпечне.
+        mockMvc.perform(post("/admin/users/another-admin/role")
+                        .with(csrf())
+                        .param("role", "VIEWER"))
+                .andExpect(status().is3xxRedirection());
+        assertThat(UserStore.readUsers(usersFile()).get("another-admin").role()).isEqualTo(Role.VIEWER);
+
+        // Лишився один адмін ("solo-admin") — понизити вже не можна.
+        mockMvc.perform(post("/admin/users/solo-admin/role")
+                        .with(csrf())
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+        assertThat(UserStore.readUsers(usersFile()).get("solo-admin").role()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void createCanSetLinkedEngineer() throws Exception {
         mockMvc.perform(post("/admin/users/create")

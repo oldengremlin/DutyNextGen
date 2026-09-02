@@ -11,7 +11,10 @@
     <div class="toolbar">
         <a class="nav-btn" th:href="@{/}">&larr; до графіка</a>
         <h1 class="month-title">Користувачі</h1>
-        <span style="width: 6.5rem;"></span>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
     </div>
 
     <div class="table-card">
