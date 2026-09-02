@@ -1,7 +1,10 @@
 package net.ukrhub.duty.web;
 
+import net.ukrhub.duty.auth.Role;
+import net.ukrhub.duty.auth.RoleCheck;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.schedule.DutyScheduleRepository;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +32,7 @@ public class ScheduleController {
     }
 
     @GetMapping("/schedule/{ym}")
-    public String schedule(@PathVariable String ym, Model model) {
+    public String schedule(@PathVariable String ym, Model model, Authentication authentication) {
         YearMonth month = MonthPath.parse(ym);
 
         model.addAttribute("month", month);
@@ -42,6 +45,9 @@ public class ScheduleController {
 
         DutySchedule schedule = repository.find(month).orElse(null);
         model.addAttribute("schedule", schedule);
+
+        model.addAttribute("canEdit", RoleCheck.has(authentication, Role.EDITOR) || RoleCheck.has(authentication, Role.ADMIN));
+        model.addAttribute("isAdmin", RoleCheck.has(authentication, Role.ADMIN));
 
         return "schedule";
     }

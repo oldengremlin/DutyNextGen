@@ -7,17 +7,13 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 /**
  * Облікові записи веб-автентифікації — окремий текстовий файл
  * {@code <config-dir>/users.txt} (рядок на користувача:
- * {@code ім'я:bcrypt-хеш}), навмисно поза git-історією графіка (це не дані
- * чергувань, а секрети). За замовчуванням файлу нема — жоден вхід
+ * {@code ім'я:bcrypt-хеш:роль}), навмисно поза git-історією графіка (це не
+ * дані чергувань, а секрети). За замовчуванням файлу нема — жоден вхід
  * неможливий, доки адміністратор не створить першого користувача через
  * CLI (див. README.md, розділ «Первинна ініціалізація»).
  */
@@ -32,13 +28,13 @@ public class FileUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) {
-        String hash = UserStore.readUsers(usersFile).get(username);
-        if (hash == null) {
+        UserStore.StoredUser stored = UserStore.readUsers(usersFile).get(username);
+        if (stored == null) {
             throw new UsernameNotFoundException("Користувача не знайдено: " + username);
         }
         return User.withUsername(username)
-                .password(hash)
-                .roles("USER")
+                .password(stored.passwordHash())
+                .roles(stored.role().springRole())
                 .build();
     }
 }

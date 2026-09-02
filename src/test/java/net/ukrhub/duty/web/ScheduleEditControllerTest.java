@@ -64,14 +64,23 @@ class ScheduleEditControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "noc")
+    @WithMockUser(username = "noc", roles = "EDITOR")
     void editPageRequiresExistingSchedule() throws Exception {
         mockMvc.perform(get("/schedule/203201/edit"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @WithMockUser(username = "noc")
+    @WithMockUser(username = "noc", roles = "VIEWER")
+    void viewerCannotOpenEditPage() throws Exception {
+        seedSchedule(YearMonth.of(2032, 11));
+
+        mockMvc.perform(get("/schedule/203211/edit"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
     void editPageRendersSelectsForExistingSchedule() throws Exception {
         seedSchedule(YearMonth.of(2032, 5));
 
@@ -82,8 +91,8 @@ class ScheduleEditControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "noc")
-    void postingChangesUpdatesScheduleAndCommits() throws Exception {
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void adminCanChangeNameAndMarks() throws Exception {
         seedSchedule(YearMonth.of(2032, 6));
 
         mockMvc.perform(post("/schedule/203206/edit")
@@ -99,12 +108,96 @@ class ScheduleEditControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "noc")
+    @WithMockUser(username = "noc", roles = "EDITOR")
+    void editorCanChangeMarksButNotNameOrType() throws Exception {
+        seedSchedule(YearMonth.of(2032, 12));
+
+        mockMvc.perform(post("/schedule/203212/edit")
+                        .with(csrf())
+                        .param("name_1", "Спроба перейменувати")
+                        .param("onlyWorkdays_1", "true")
+                        .param("mark_1_1", "D"))
+                .andExpect(status().is3xxRedirection());
+
+        DutySchedule updated = repository.find(YearMonth.of(2032, 12)).orElseThrow();
+        assertThat(updated.engineer(1).name()).isEqualTo("Стара І.");
+        assertThat(updated.engineer(1).onlyWorkdays()).isFalse();
+        assertThat(updated.days().get(0).markFor(1)).isEqualTo(DutyMark.DUTY);
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
     void postingWithoutCsrfIsRejected() throws Exception {
         seedSchedule(YearMonth.of(2032, 7));
 
         mockMvc.perform(post("/schedule/203207/edit")
-                        .param("name_1", "Спроба без CSRF"))
+                        .param("mark_1_1", "D"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void addingEngineerAppendsToRosterAndAllDaysWithOff() throws Exception {
+        seedSchedule(YearMonth.of(2032, 8));
+
+        mockMvc.perform(post("/schedule/203208/edit/add-engineer")
+                        .with(csrf())
+                        .param("name", "Новак П.")
+                        .param("onlyWorkdays", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203208/edit"));
+
+        DutySchedule updated = repository.find(YearMonth.of(2032, 8)).orElseThrow();
+        assertThat(updated.engineers()).hasSize(2);
+        Engineer added = updated.engineer(2);
+        assertThat(added.name()).isEqualTo("Новак П.");
+        assertThat(added.onlyWorkdays()).isTrue();
+        assertThat(updated.days().get(0).markFor(2)).isEqualTo(DutyMark.OFF);
+        assertThat(updated.lastDay0()).containsKey(2);
+        assertThat(updated.lastDay1()).containsKey(2);
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void removingEngineerDropsFromRosterAndAllDays() throws Exception {
+        seedSchedule(YearMonth.of(2032, 9));
+
+        mockMvc.perform(post("/schedule/203209/edit/remove-engineer")
+                        .with(csrf())
+                        .param("number", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203209/edit"));
+
+        DutySchedule updated = repository.find(YearMonth.of(2032, 9)).orElseThrow();
+        assertThat(updated.engineers()).isEmpty();
+        assertThat(updated.days().get(0).marks()).doesNotContainKey(1);
+        assertThat(updated.lastDay0()).doesNotContainKey(1);
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void removingUnknownEngineerIs404() throws Exception {
+        seedSchedule(YearMonth.of(2032, 10));
+
+        mockMvc.perform(post("/schedule/203210/edit/remove-engineer")
+                        .with(csrf())
+                        .param("number", "99"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
+    void editorCannotAddOrRemoveEngineer() throws Exception {
+        seedSchedule(YearMonth.of(2033, 1));
+
+        mockMvc.perform(post("/schedule/203301/edit/add-engineer")
+                        .with(csrf())
+                        .param("name", "Хтось"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/schedule/203301/edit/remove-engineer")
+                        .with(csrf())
+                        .param("number", "1"))
                 .andExpect(status().isForbidden());
     }
 }
