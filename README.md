@@ -48,8 +48,17 @@ mvn spring-boot:run
 За замовчуванням піднімається на `http://localhost:8080`.
 
 Каталог з даними графіка задається змінною середовища `DUTY_DATA_DIR`
-(за замовчуванням `./data/duty`). Налаштування CalDAV — `DUTY_CALDAV_BASE_URL`,
-`DUTY_CALDAV_USER`, `DUTY_CALDAV_PASSWORD`.
+(за замовчуванням `./data/duty`), каталог конфігурації (облікові записи
+веб-автентифікації) — `DUTY_CONFIG_DIR` (за замовчуванням `./config`).
+Налаштування CalDAV — `DUTY_CALDAV_BASE_URL`, `DUTY_CALDAV_USER`,
+`DUTY_CALDAV_PASSWORD`.
+
+**Важливо:** JVM обов'язково запускати з UTF-8-локаллю (`LANG=C.UTF-8` або
+подібне). `GitCommitService` передає кириличні імена авторів і повідомлення
+комітів дочірньому процесу `git` через native-кодування JVM
+(`sun.jnu.encoding`), а не через `file.encoding` — без UTF-8-локалі кирилиця
+мовчки пошкодиться. Якщо локаль неправильна, застосунок падає одразу при
+старті з поясненням, що робити.
 
 ## Дані та історія
 
