@@ -11,7 +11,10 @@
     <div class="toolbar">
         <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">&larr; скасувати</a>
         <h1 class="month-title" th:text="'Редагування: ' + ${monthLabel}">Редагування</h1>
-        <span style="width: 6.5rem;"></span>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
     </div>
 
     <!-- Керування ростером (додати/видалити) — лише для ADMIN. Сервер це

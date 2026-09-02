@@ -150,7 +150,7 @@ class ScheduleGenerationControllerTest {
 
     @Test
     @WithMockUser(username = "noc", roles = "ADMIN")
-    void cannotDeleteCurrentOrPastMonth() throws Exception {
+    void cannotDeleteCurrentMonth() throws Exception {
         YearMonth current = YearMonth.now();
         if (!repository.exists(current)) {
             seedSimple(current);
@@ -158,6 +158,18 @@ class ScheduleGenerationControllerTest {
 
         mockMvc.perform(post("/schedule/" + MonthPath.format(current) + "/delete").with(csrf()))
                 .andExpect(status().isBadRequest());
+        assertThat(repository.find(current)).isPresent();
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void cannotDeletePastMonth() throws Exception {
+        YearMonth past = YearMonth.now().minusMonths(3);
+        seedSimple(past);
+
+        mockMvc.perform(post("/schedule/" + MonthPath.format(past) + "/delete").with(csrf()))
+                .andExpect(status().isBadRequest());
+        assertThat(repository.find(past)).isPresent();
     }
 
     @Test
