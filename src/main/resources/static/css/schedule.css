@@ -73,10 +73,13 @@ body {
     font-size: 0.95rem;
     white-space: nowrap;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.06);
+    transition: box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .nav-btn:hover {
     background: var(--accent-soft);
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.1);
 }
 
 .table-card {
@@ -84,7 +87,12 @@ body {
     border: 1px solid var(--border);
     border-radius: 0.9rem;
     overflow: auto;
-    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.04);
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.05), 0 10px 28px rgba(20, 20, 43, 0.06);
+    transition: box-shadow 0.25s ease;
+}
+
+.table-card:hover {
+    box-shadow: 0 4px 10px rgba(20, 20, 43, 0.07), 0 14px 36px rgba(20, 20, 43, 0.09);
 }
 
 table {
@@ -167,6 +175,14 @@ td.today, th.today {
     box-shadow: inset 0 0 0 2px var(--today-ring);
 }
 
+/* Підсвітка рядка/стовпця під курсором (виставляється JS-ом —
+   table-hover.js — CSS сам по собі не вміє дібрати клітини того самого
+   стовпця в інших рядках). */
+td.hover-row, th.hover-row,
+td.hover-col, th.hover-col {
+    background: var(--accent-soft);
+}
+
 .mark {
     display: inline-block;
     min-width: 1.6em;
@@ -174,6 +190,7 @@ td.today, th.today {
     border-radius: 0.4em;
     font-weight: 700;
     font-size: 0.9rem;
+    text-align: center;
 }
 
 .mark-duty {
@@ -299,10 +316,13 @@ td.today, th.today {
     font-weight: 650;
     font-size: 1rem;
     cursor: pointer;
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.12);
+    transition: box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .save-btn:hover {
     filter: brightness(1.08);
+    box-shadow: 0 3px 10px rgba(20, 20, 43, 0.16);
 }
 
 .remove-btn {
@@ -314,10 +334,13 @@ td.today, th.today {
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.06);
+    transition: box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .remove-btn:hover {
     background: var(--sick-bg);
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.1);
 }
 
 /* Той самий розмір, що й .nav-btn (щоб кнопки в одному ряду мали однакову
@@ -337,10 +360,13 @@ td.today, th.today {
     font-size: 0.95rem;
     white-space: nowrap;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.06);
+    transition: box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .nav-btn-danger:hover {
     background: var(--sick-bg);
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.1);
 }
 
 .add-engineer-card {
