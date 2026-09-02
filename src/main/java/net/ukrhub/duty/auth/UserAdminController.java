@@ -1,5 +1,6 @@
 package net.ukrhub.duty.auth;
 
+import net.ukrhub.duty.caldav.CalDavSyncService;
 import net.ukrhub.duty.config.DutyProperties;
 import net.ukrhub.duty.domain.Engineer;
 import net.ukrhub.duty.schedule.DutyScheduleRepository;
@@ -33,12 +34,14 @@ public class UserAdminController {
     private final Path usersFile;
     private final PasswordEncoder passwordEncoder;
     private final DutyScheduleRepository scheduleRepository;
+    private final CalDavSyncService calDavSyncService;
 
     public UserAdminController(DutyProperties properties, PasswordEncoder passwordEncoder,
-                                DutyScheduleRepository scheduleRepository) {
+                                DutyScheduleRepository scheduleRepository, CalDavSyncService calDavSyncService) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
         this.passwordEncoder = passwordEncoder;
         this.scheduleRepository = scheduleRepository;
+        this.calDavSyncService = calDavSyncService;
     }
 
     /** DTO для шаблону — {@code UserStore.StoredUser} пакетно-приватний навмисно. */
@@ -54,6 +57,7 @@ public class UserAdminController {
         model.addAttribute("users", rows);
         model.addAttribute("roles", Role.values());
         model.addAttribute("engineerNames", currentEngineerNames());
+        model.addAttribute("caldavConfigured", calDavSyncService.configured());
         return "admin-users";
     }
 

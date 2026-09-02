@@ -106,6 +106,27 @@
         </p>
     </div>
 
+    <div class="add-engineer-card">
+        <h2 class="add-engineer-title">CalDAV</h2>
+        <div th:if="${caldavSyncDone}" class="edit-errors" style="background: var(--vacation-bg); color: var(--vacation-fg); border-color: var(--vacation-fg);">
+            Синхронізацію запущено.
+        </div>
+        <div th:if="${caldavConfigured}">
+            <form method="post" th:action="@{/admin/caldav/sync-now}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="save-btn">Синхронізувати зараз</button>
+            </form>
+            <p class="add-engineer-note">
+                Публікує події поточного й наступного місяця в CalDAV (Baikal) — те саме робить і
+                фоновий процес раз на 5 хвилин. Минулі дні не чіпаються ніколи.
+            </p>
+        </div>
+        <p th:unless="${caldavConfigured}" class="add-engineer-note">
+            CalDAV не налаштовано (порожній <code>DUTY_CALDAV_BASE_URL</code>) — ні фонова
+            синхронізація, ні ця кнопка нічого не роблять.
+        </p>
+    </div>
+
 </div>
 </body>
 </html>

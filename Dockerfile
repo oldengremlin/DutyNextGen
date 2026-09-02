@@ -29,6 +29,11 @@ ENV LC_ALL=C.UTF-8
 # Дивись README.md, розділ «Запуск у Docker».
 ENV DUTY_DATA_DIR=/data
 ENV DUTY_CONFIG_DIR=/config
+# Кеш стану CalDAV-синку (опубліковані UID + хеші вмісту) — навмисно
+# всередині вже змонтованого /config, а не окремий том: це лише
+# внутрішній кеш (втрата — не катастрофа, найгірше кілька зайвих PUT'ів
+# при наступному синку), але хочеться пережити перестворення контейнера.
+ENV DUTY_CALDAV_STATE_DIR=/config/caldav-state
 VOLUME ["/data", "/config"]
 
 WORKDIR /app
