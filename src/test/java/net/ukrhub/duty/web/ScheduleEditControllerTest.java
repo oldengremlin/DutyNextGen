@@ -1,5 +1,7 @@
 package net.ukrhub.duty.web;
 
+import net.ukrhub.duty.auth.Role;
+import net.ukrhub.duty.auth.UserStoreTestHelper;
 import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
@@ -105,6 +107,22 @@ class ScheduleEditControllerTest {
         DutySchedule updated = repository.find(YearMonth.of(2032, 6)).orElseThrow();
         assertThat(updated.engineer(1).name()).isEqualTo("Нова І.");
         assertThat(updated.days().get(0).markFor(1)).isEqualTo(DutyMark.DUTY);
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void renamingEngineerPropagatesLinkedUser() throws Exception {
+        seedSchedule(YearMonth.of(2033, 5));
+        Path usersFile = tempDir.resolve("config").resolve("users.txt");
+        UserStoreTestHelper.writeUser(usersFile, "chergovyi", "hash", Role.VIEWER, "Стара І.");
+
+        mockMvc.perform(post("/schedule/203305/edit")
+                        .with(csrf())
+                        .param("name_1", "Нова І.")
+                        .param("mark_1_1", "D"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(UserStoreTestHelper.readLinkedEngineer(usersFile, "chergovyi")).isEqualTo("Нова І.");
     }
 
     @Test

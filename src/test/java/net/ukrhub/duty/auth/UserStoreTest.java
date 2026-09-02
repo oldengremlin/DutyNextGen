@@ -42,6 +42,43 @@ class UserStoreTest {
     }
 
     @Test
+    void roundTripsLinkedEngineer(@TempDir Path tempDir) {
+        Path usersFile = tempDir.resolve("users.txt");
+
+        UserStore.writeUser(usersFile, "chergovyi", "hash1", Role.VIEWER, "Іванов І.");
+        UserStore.StoredUser stored = UserStore.readUsers(usersFile).get("chergovyi");
+
+        assertThat(stored.linkedEngineer()).isEqualTo("Іванов І.");
+    }
+
+    @Test
+    void writeUserWithoutLinkPreservesExistingLink(@TempDir Path tempDir) {
+        Path usersFile = tempDir.resolve("users.txt");
+        UserStore.writeUser(usersFile, "chergovyi", "hash1", Role.VIEWER, "Іванов І.");
+
+        // Виклик 4-аргументної версії (як у change-role/reset-password) не
+        // повинен мовчки стирати вже наявну прив'язку.
+        UserStore.writeUser(usersFile, "chergovyi", "hash2", Role.EDITOR);
+
+        UserStore.StoredUser stored = UserStore.readUsers(usersFile).get("chergovyi");
+        assertThat(stored.passwordHash()).isEqualTo("hash2");
+        assertThat(stored.role()).isEqualTo(Role.EDITOR);
+        assertThat(stored.linkedEngineer()).isEqualTo("Іванов І.");
+    }
+
+    @Test
+    void threeFieldLegacyLineHasNoLink(@TempDir Path tempDir) throws IOException {
+        Path usersFile = tempDir.resolve("users.txt");
+        Files.writeString(usersFile, "noc:$2a$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12:EDITOR\n",
+                StandardCharsets.UTF_8);
+
+        UserStore.StoredUser stored = UserStore.readUsers(usersFile).get("noc");
+
+        assertThat(stored.role()).isEqualTo(Role.EDITOR);
+        assertThat(stored.linkedEngineer()).isNull();
+    }
+
+    @Test
     void deleteUserRemovesOnlyThatEntry(@TempDir Path tempDir) {
         Path usersFile = tempDir.resolve("users.txt");
         UserStore.writeUser(usersFile, "keep", "hash-keep", Role.VIEWER);

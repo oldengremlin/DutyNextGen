@@ -122,4 +122,50 @@ class UserAdminControllerTest {
 
         assertThat(UserStore.readUsers(usersFile())).doesNotContainKey("toRemove");
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanLinkAndUnlinkUserToEngineer() throws Exception {
+        UserStore.writeUser(usersFile(), "chergovyi", "hash", Role.VIEWER);
+
+        mockMvc.perform(post("/admin/users/chergovyi/link")
+                        .with(csrf())
+                        .param("linkedEngineer", "Іванов І."))
+                .andExpect(status().is3xxRedirection());
+        assertThat(UserStore.readUsers(usersFile()).get("chergovyi").linkedEngineer()).isEqualTo("Іванов І.");
+
+        mockMvc.perform(post("/admin/users/chergovyi/link")
+                        .with(csrf())
+                        .param("linkedEngineer", ""))
+                .andExpect(status().is3xxRedirection());
+        assertThat(UserStore.readUsers(usersFile()).get("chergovyi").linkedEngineer()).isNull();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void changingRoleOrPasswordPreservesExistingLink() throws Exception {
+        UserStore.writeUser(usersFile(), "chergovyi", "hash", Role.VIEWER, "Іванов І.");
+
+        mockMvc.perform(post("/admin/users/chergovyi/role")
+                        .with(csrf())
+                        .param("role", "EDITOR"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(UserStore.readUsers(usersFile()).get("chergovyi").linkedEngineer()).isEqualTo("Іванов І.");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void createCanSetLinkedEngineer() throws Exception {
+        mockMvc.perform(post("/admin/users/create")
+                        .with(csrf())
+                        .param("username", "novyi2")
+                        .param("password", "secret123")
+                        .param("confirm", "secret123")
+                        .param("role", "VIEWER")
+                        .param("linkedEngineer", "Петров П."))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(UserStore.readUsers(usersFile()).get("novyi2").linkedEngineer()).isEqualTo("Петров П.");
+    }
 }

@@ -21,6 +21,7 @@
                 <th class="name-col">Ім'я</th>
                 <th>Роль</th>
                 <th>Змінити роль</th>
+                <th>Прив'язка до адміністратора</th>
                 <th>Новий пароль</th>
                 <th>Видалити</th>
             </tr>
@@ -39,6 +40,19 @@
                                     th:selected="${r == user.role}"></option>
                         </select>
                         <button type="submit" class="nav-btn">Змінити</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/users/{u}/link(u=${user.username})}">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}"/>
+                        <select name="linkedEngineer">
+                            <option value="" th:selected="${user.linkedEngineer == null}">— не прив'язано —</option>
+                            <option th:each="name : ${engineerNames}" th:value="${name}" th:text="${name}"
+                                    th:selected="${#strings.equals(name, user.linkedEngineer)}"></option>
+                        </select>
+                        <button type="submit" class="nav-btn">Прив'язати</button>
                     </form>
                 </td>
                 <td>
@@ -75,11 +89,17 @@
             <select name="role">
                 <option th:each="r : ${roles}" th:value="${r}" th:text="${r.displayName}"></option>
             </select>
+            <select name="linkedEngineer">
+                <option value="">— не прив'язано —</option>
+                <option th:each="name : ${engineerNames}" th:value="${name}" th:text="${name}"></option>
+            </select>
             <button type="submit" class="save-btn">Створити</button>
         </form>
         <p class="add-engineer-note">
             <strong>Користувач</strong> — лише перегляд. <strong>Редактор</strong> — ще й позначки по днях
             (без зміни П.І.Б. і типу). <strong>Адміністратор</strong> — усе, включно з цією сторінкою.
+            Прив'язка до адміністратора (за поточним П.І.Б.) — довідкова, автоматично переноситься
+            при перейменуванні; сама собою жодних прав не додає й не забирає.
         </p>
     </div>
 

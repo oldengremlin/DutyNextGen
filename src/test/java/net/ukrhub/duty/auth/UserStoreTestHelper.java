@@ -17,7 +17,16 @@ public final class UserStoreTestHelper {
         UserStore.writeUser(usersFile, username, bcryptHash, role);
     }
 
+    public static void writeUser(Path usersFile, String username, String bcryptHash, Role role, String linkedEngineer) {
+        UserStore.writeUser(usersFile, username, bcryptHash, role, linkedEngineer);
+    }
+
     public static void writeAdmin(Path usersFile, String username, String bcryptHash) {
         UserStore.writeUser(usersFile, username, bcryptHash, Role.ADMIN);
+    }
+
+    public static String readLinkedEngineer(Path usersFile, String username) {
+        UserStore.StoredUser stored = UserStore.readUsers(usersFile).get(username);
+        return stored != null ? stored.linkedEngineer() : null;
     }
 }
