@@ -10,15 +10,24 @@ import java.util.Map;
 
 /**
  * Читання й запис {@code users.txt} — рядок на користувача:
- * {@code ім'я:bcrypt-хеш:РОЛЬ}. Спільне для {@link FileUserDetailsService}
- * (веб-автентифікація), {@link UserAdminCli} (первинний бутстрап через
- * командний рядок — завжди створює {@link Role#ADMIN}) і
- * {@link UserAdminController} (керування рештою користувачів через веб).
+ * {@code ім'я:bcrypt-хеш:РОЛЬ:прив'язаний_інженер}. Спільне для
+ * {@link FileUserDetailsService} (веб-автентифікація), {@link UserAdminCli}
+ * (первинний бутстрап через командний рядок — завжди створює
+ * {@link Role#ADMIN}, без прив'язки) і {@link UserAdminController}
+ * (керування рештою користувачів через веб).
  *
  * <p>Рядки без третього поля (записані до появи ролей) трактуються як
  * {@link Role#ADMIN} — саме такою була семантика "єдиного користувача"
  * раніше, і не хочеться мовчки понижувати права вже наявних облікових
- * записів при оновленні.
+ * записів при оновленні. Четверте поле (прив'язка) — необов'язкове й
+ * може бути порожнім навіть у нових рядках.
+ *
+ * <p>Прив'язка — за іменем інженера (не за номером у місячному файлі:
+ * номер стабільний лише в межах одного місяця й переприсвоюється при
+ * зміні ростеру). Це свідомо крихкий зв'язок, який ламається при
+ * перейменуванні — саме тому {@code ScheduleEditController} при
+ * перейменуванні інженера адміністратором переносить прив'язку на нове
+ * ім'я через {@link UserLinkService}.
  */
 final class UserStore {
 
@@ -27,7 +36,7 @@ final class UserStore {
     private UserStore() {
     }
 
-    record StoredUser(String passwordHash, Role role) {
+    record StoredUser(String passwordHash, Role role, String linkedEngineer) {
     }
 
     static Map<String, StoredUser> readUsers(Path usersFile) {
@@ -41,12 +50,13 @@ final class UserStore {
                 if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                     continue;
                 }
-                String[] parts = trimmed.split(":", 3);
+                String[] parts = trimmed.split(":", 4);
                 if (parts.length < 2) {
                     continue;
                 }
-                Role role = parts.length == 3 ? Role.valueOf(parts[2]) : Role.ADMIN;
-                result.put(parts[0], new StoredUser(parts[1], role));
+                Role role = parts.length >= 3 && !parts[2].isBlank() ? Role.valueOf(parts[2]) : Role.ADMIN;
+                String linkedEngineer = parts.length == 4 && !parts[3].isBlank() ? parts[3] : null;
+                result.put(parts[0], new StoredUser(parts[1], role, linkedEngineer));
             }
             return result;
         } catch (IOException e) {
@@ -55,8 +65,12 @@ final class UserStore {
     }
 
     static void writeUser(Path usersFile, String username, String bcryptHash, Role role) {
+        writeUser(usersFile, username, bcryptHash, role, currentLink(usersFile, username));
+    }
+
+    static void writeUser(Path usersFile, String username, String bcryptHash, Role role, String linkedEngineer) {
         Map<String, StoredUser> users = new LinkedHashMap<>(readUsers(usersFile));
-        users.put(username, new StoredUser(bcryptHash, role));
+        users.put(username, new StoredUser(bcryptHash, role, linkedEngineer));
         save(usersFile, users);
     }
 
@@ -66,17 +80,25 @@ final class UserStore {
         save(usersFile, users);
     }
 
+    private static String currentLink(Path usersFile, String username) {
+        StoredUser existing = readUsers(usersFile).get(username);
+        return existing != null ? existing.linkedEngineer() : null;
+    }
+
     private static void save(Path usersFile, Map<String, StoredUser> users) {
         try {
             if (usersFile.getParent() != null) {
                 Files.createDirectories(usersFile.getParent());
             }
             StringBuilder sb = new StringBuilder();
-            sb.append("# duty-nextgen: облікові записи веб-автентифікації (ім'я:bcrypt-хеш:роль)\n");
+            sb.append("# duty-nextgen: облікові записи веб-автентифікації (ім'я:bcrypt-хеш:роль:прив'язаний_інженер)\n");
             for (var entry : users.entrySet()) {
+                StoredUser u = entry.getValue();
                 sb.append(entry.getKey()).append(':')
-                        .append(entry.getValue().passwordHash()).append(':')
-                        .append(entry.getValue().role().name()).append('\n');
+                        .append(u.passwordHash()).append(':')
+                        .append(u.role().name()).append(':')
+                        .append(u.linkedEngineer() != null ? u.linkedEngineer() : "")
+                        .append('\n');
             }
             Files.writeString(usersFile, sb.toString(), StandardCharsets.UTF_8);
         } catch (IOException e) {

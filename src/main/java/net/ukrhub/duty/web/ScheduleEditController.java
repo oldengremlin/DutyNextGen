@@ -2,6 +2,7 @@ package net.ukrhub.duty.web;
 
 import net.ukrhub.duty.auth.Role;
 import net.ukrhub.duty.auth.RoleCheck;
+import net.ukrhub.duty.auth.UserLinkService;
 import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
@@ -44,9 +45,11 @@ import java.util.Map;
 public class ScheduleEditController {
 
     private final DutyScheduleRepository repository;
+    private final UserLinkService userLinkService;
 
-    public ScheduleEditController(DutyScheduleRepository repository) {
+    public ScheduleEditController(DutyScheduleRepository repository, UserLinkService userLinkService) {
         this.repository = repository;
+        this.userLinkService = userLinkService;
     }
 
     @GetMapping("/schedule/{ym}/edit")
@@ -109,6 +112,18 @@ public class ScheduleEditController {
         String username = principal != null ? principal.getName() : "невідомий";
         repository.save(updated, "Редагування графіка " + ym + " через веб (" + username + ")",
                 username, username + "@duty.local");
+
+        // Перейменування П.І.Б. (лише ADMIN міг його змінити) переносимо й на
+        // прив'язку "Користувача" до цього адміністратора — інакше вона тихо
+        // розірветься при виправленні навіть однієї літери в імені.
+        if (isAdmin) {
+            for (Engineer before : existing.engineers()) {
+                String afterName = updated.engineer(before.number()).name();
+                if (!before.name().equals(afterName)) {
+                    userLinkService.renameEngineer(before.name(), afterName);
+                }
+            }
+        }
 
         return "redirect:/schedule/" + ym;
     }

@@ -1,6 +1,8 @@
 package net.ukrhub.duty.auth;
 
 import net.ukrhub.duty.config.DutyProperties;
+import net.ukrhub.duty.domain.Engineer;
+import net.ukrhub.duty.schedule.DutyScheduleRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 
 import java.nio.file.Path;
 import java.security.Principal;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -29,30 +32,42 @@ public class UserAdminController {
 
     private final Path usersFile;
     private final PasswordEncoder passwordEncoder;
+    private final DutyScheduleRepository scheduleRepository;
 
-    public UserAdminController(DutyProperties properties, PasswordEncoder passwordEncoder) {
+    public UserAdminController(DutyProperties properties, PasswordEncoder passwordEncoder,
+                                DutyScheduleRepository scheduleRepository) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
         this.passwordEncoder = passwordEncoder;
+        this.scheduleRepository = scheduleRepository;
     }
 
     /** DTO для шаблону — {@code UserStore.StoredUser} пакетно-приватний навмисно. */
-    public record UserRow(String username, Role role) {
+    public record UserRow(String username, Role role, String linkedEngineer) {
     }
 
     @GetMapping("/admin/users")
     public String list(Model model) {
         Map<String, UserStore.StoredUser> users = new TreeMap<>(UserStore.readUsers(usersFile));
         List<UserRow> rows = users.entrySet().stream()
-                .map(e -> new UserRow(e.getKey(), e.getValue().role()))
+                .map(e -> new UserRow(e.getKey(), e.getValue().role(), e.getValue().linkedEngineer()))
                 .toList();
         model.addAttribute("users", rows);
         model.addAttribute("roles", Role.values());
+        model.addAttribute("engineerNames", currentEngineerNames());
         return "admin-users";
+    }
+
+    /** Імена інженерів поточного місяця — джерело для випадаючого списку прив'язки. */
+    private List<String> currentEngineerNames() {
+        return scheduleRepository.find(YearMonth.now())
+                .map(s -> s.engineers().stream().map(Engineer::name).sorted().toList())
+                .orElse(List.of());
     }
 
     @PostMapping("/admin/users/create")
     public String create(@RequestParam String username, @RequestParam String password,
-                          @RequestParam String confirm, @RequestParam Role role) {
+                          @RequestParam String confirm, @RequestParam Role role,
+                          @RequestParam(required = false) String linkedEngineer) {
         username = username.strip();
         if (username.isBlank() || !password.equals(confirm) || password.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -61,8 +76,19 @@ public class UserAdminController {
         if (UserStore.readUsers(usersFile).containsKey(username)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Користувач '" + username + "' вже існує");
         }
-        UserStore.writeUser(usersFile, username, passwordEncoder.encode(password), role);
+        UserStore.writeUser(usersFile, username, passwordEncoder.encode(password), role, normalizeLink(linkedEngineer));
         return "redirect:/admin/users";
+    }
+
+    @PostMapping("/admin/users/{username}/link")
+    public String link(@PathVariable String username, @RequestParam(required = false) String linkedEngineer) {
+        UserStore.StoredUser existing = requireUser(username);
+        UserStore.writeUser(usersFile, username, existing.passwordHash(), existing.role(), normalizeLink(linkedEngineer));
+        return "redirect:/admin/users";
+    }
+
+    private static String normalizeLink(String linkedEngineer) {
+        return (linkedEngineer == null || linkedEngineer.isBlank()) ? null : linkedEngineer.strip();
     }
 
     @PostMapping("/admin/users/{username}/role")
