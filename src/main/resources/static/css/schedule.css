@@ -1,0 +1,254 @@
+:root {
+    --ink: #1f2430;
+    --muted: #6b7280;
+    --border: #e3e6ec;
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --accent: #3859d6;
+    --accent-soft: #e8ecfd;
+    --weekend-bg: #fdf3ea;
+    --today-ring: #f5a524;
+
+    --duty-bg: #ffe3c2;
+    --duty-fg: #7a3e00;
+    --work-bg: #e7ecf7;
+    --work-fg: #33415c;
+    --vacation-bg: #d9f2e3;
+    --vacation-fg: #14612f;
+    --sick-bg: #fbe0e2;
+    --sick-fg: #8a1f2a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 1.5rem;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+}
+
+.page {
+    max-width: 96vw;
+    margin: 0 auto;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.month-title {
+    font-size: 1.5rem;
+    font-weight: 650;
+    margin: 0;
+    text-align: center;
+    flex: 1;
+}
+
+.nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    padding: 0.5rem 1rem;
+    border-radius: 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.nav-btn:hover {
+    background: var(--accent-soft);
+}
+
+.table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    overflow: auto;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.04);
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.95rem;
+}
+
+th, td {
+    padding: 0.5rem 0.4rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    font-weight: 650;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--border);
+    z-index: 1;
+}
+
+thead th .day-num {
+    display: block;
+    font-size: 1rem;
+    color: var(--ink);
+    font-weight: 650;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.name-col {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    text-align: left;
+    font-weight: 600;
+    min-width: 9.5rem;
+    z-index: 1;
+}
+
+thead .name-col {
+    z-index: 2;
+}
+
+.badge-only-workdays {
+    display: inline-block;
+    margin-left: 0.4em;
+    padding: 0.05em 0.5em;
+    border-radius: 1em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+td.weekend, th.weekend {
+    background: var(--weekend-bg);
+}
+
+.name-col.weekend {
+    background: var(--surface);
+}
+
+td.today, th.today {
+    box-shadow: inset 0 0 0 2px var(--today-ring);
+}
+
+.mark {
+    display: inline-block;
+    min-width: 1.6em;
+    padding: 0.15em 0;
+    border-radius: 0.4em;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.mark-duty {
+    background: var(--duty-bg);
+    color: var(--duty-fg);
+}
+
+.mark-work {
+    background: var(--work-bg);
+    color: var(--work-fg);
+}
+
+.mark-vacation {
+    background: var(--vacation-bg);
+    color: var(--vacation-fg);
+}
+
+.mark-sick {
+    background: var(--sick-bg);
+    color: var(--sick-fg);
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    align-items: center;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+.empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 0.9rem;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--muted);
+}
+
+.footer-note {
+    margin-top: 1rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+@media print {
+    @page {
+        size: landscape;
+        margin: 1cm;
+    }
+
+    body {
+        padding: 0;
+        background: var(--surface);
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    .toolbar .nav-btn {
+        display: none;
+    }
+
+    .table-card {
+        border: none;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    thead th, .name-col {
+        position: static;
+    }
+
+    table {
+        font-size: 11pt;
+    }
+
+    tr {
+        break-inside: avoid;
+    }
+}

@@ -30,4 +30,20 @@ public enum DutyMark {
         }
         return OFF;
     }
+
+    /** Однолітерна українська позначка для відображення у веб-таблиці (не для файлу). */
+    public String displayLetter() {
+        return switch (this) {
+            case DUTY -> "Ч";
+            case WORK -> "Р";
+            case VACATION -> "В";
+            case SICK -> "Л";
+            case OFF -> "";
+        };
+    }
+
+    /** CSS-клас для кольорового кодування позначки у веб-таблиці. */
+    public String cssClass() {
+        return "mark-" + name().toLowerCase();
+    }
 }
