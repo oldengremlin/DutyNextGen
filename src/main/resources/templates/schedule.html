@@ -56,8 +56,11 @@
         <span class="legend-item"><span class="mark mark-sick">Л</span> лікарняний</span>
         <span class="legend-item"><span class="mark mark-session">С</span> сесія</span>
         <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
-        <a class="nav-btn noprint" style="margin-left: auto;"
-           th:href="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">Редагувати</a>
+        <span style="margin-left: auto; display: flex; gap: 0.5rem;">
+            <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
+            <a th:if="${canEdit}" class="nav-btn noprint"
+               th:href="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">Редагувати</a>
+        </span>
     </div>
 
     <div class="footer-note">Duty NextGen</div>

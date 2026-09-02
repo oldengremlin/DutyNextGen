@@ -1,5 +1,6 @@
 package net.ukrhub.duty.web;
 
+import net.ukrhub.duty.auth.Role;
 import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
@@ -46,7 +47,7 @@ class ScheduleControllerTest {
         Path usersFile = tempDir.resolve("config").resolve("users.txt");
         if (!usersFile.toFile().exists()) {
             String hash = new BCryptPasswordEncoder().encode("secret123");
-            net.ukrhub.duty.auth.UserStoreTestHelper.writeUser(usersFile, "noc", hash);
+            net.ukrhub.duty.auth.UserStoreTestHelper.writeAdmin(usersFile, "noc", hash);
         }
         return restTemplate.withBasicAuth("noc", "secret123");
     }
@@ -106,5 +107,47 @@ class ScheduleControllerTest {
         ResponseEntity<String> response = authed().getForEntity("/schedule/203104", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("holiday");
+    }
+
+    @Test
+    void viewerDoesNotSeeEditOrUsersLinks() {
+        Path usersFile = tempDir.resolve("config").resolve("users.txt");
+        net.ukrhub.duty.auth.UserStoreTestHelper.writeUser(usersFile, "viewer1",
+                new BCryptPasswordEncoder().encode("secret123"), Role.VIEWER);
+
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2031, 5),
+                List.of(new Engineer(1, "Хтось", false)),
+                List.of(new DutyDay(1, DayOfWeek.MONDAY, Map.of(1, DutyMark.WORK))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "тест", "Тест", "test@example.com");
+
+        ResponseEntity<String> response = restTemplate.withBasicAuth("viewer1", "secret123")
+                .getForEntity("/schedule/203105", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).doesNotContain("Редагувати").doesNotContain("Користувачі");
+    }
+
+    @Test
+    void editorSeesEditLinkButNotUsersLink() {
+        Path usersFile = tempDir.resolve("config").resolve("users.txt");
+        net.ukrhub.duty.auth.UserStoreTestHelper.writeUser(usersFile, "editor1",
+                new BCryptPasswordEncoder().encode("secret123"), Role.EDITOR);
+
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2031, 6),
+                List.of(new Engineer(1, "Хтось", false)),
+                List.of(new DutyDay(1, DayOfWeek.MONDAY, Map.of(1, DutyMark.WORK))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "тест", "Тест", "test@example.com");
+
+        ResponseEntity<String> response = restTemplate.withBasicAuth("editor1", "secret123")
+                .getForEntity("/schedule/203106", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("Редагувати").doesNotContain("Користувачі");
     }
 }

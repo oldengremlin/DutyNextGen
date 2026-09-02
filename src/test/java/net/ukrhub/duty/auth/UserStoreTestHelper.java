@@ -13,7 +13,11 @@ public final class UserStoreTestHelper {
     private UserStoreTestHelper() {
     }
 
-    public static void writeUser(Path usersFile, String username, String bcryptHash) {
-        UserStore.writeUser(usersFile, username, bcryptHash);
+    public static void writeUser(Path usersFile, String username, String bcryptHash, Role role) {
+        UserStore.writeUser(usersFile, username, bcryptHash, role);
+    }
+
+    public static void writeAdmin(Path usersFile, String username, String bcryptHash) {
+        UserStore.writeUser(usersFile, username, bcryptHash, Role.ADMIN);
     }
 }

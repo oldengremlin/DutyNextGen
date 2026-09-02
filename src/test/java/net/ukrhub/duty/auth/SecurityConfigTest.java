@@ -48,7 +48,7 @@ class SecurityConfigTest {
     void rootIsServedForBootstrappedUser() {
         Path usersFile = tempDir.resolve("config").resolve("users.txt");
         String hash = new BCryptPasswordEncoder().encode("secret123");
-        UserStore.writeUser(usersFile, "noc", hash);
+        UserStore.writeUser(usersFile, "noc", hash, Role.ADMIN);
 
         ResponseEntity<String> response = restTemplate
                 .withBasicAuth("noc", "secret123")

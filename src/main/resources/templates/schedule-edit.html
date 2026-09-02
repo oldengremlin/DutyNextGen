@@ -14,6 +14,18 @@
         <span style="width: 6.5rem;"></span>
     </div>
 
+    <!-- Керування ростером (додати/видалити) — лише для ADMIN. Сервер це
+         й так перевіряє окремо (SecurityConfig: /add-engineer,
+         /remove-engineer — hasRole ADMIN), тут просто не показуємо
+         кнопки тим, хто б однаково отримав 403. -->
+    <!-- Окрема, порожня форма-ціль для кнопок "Видалити" в рядках нижче:
+         кнопка не може бути в двох формах одночасно (HTML не дозволяє
+         вкладені <form>), тож зв'язується з цією через атрибут form="". -->
+    <form th:if="${isAdmin}" id="remove-engineer-form" method="post"
+          th:action="@{/schedule/{ym}/edit/remove-engineer(ym=${#temporals.format(month, 'yyyyMM')})}">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
     <form method="post" th:action="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">
         <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
 
@@ -32,12 +44,17 @@
                 <tr th:each="engineer : ${schedule.engineers}">
                     <td class="name-col">
                         <input type="text" class="name-input" th:name="'name_' + ${engineer.number}"
-                               th:value="${engineer.name}"/>
+                               th:value="${engineer.name}" th:disabled="${!isAdmin}"/>
                         <label class="only-workdays-label">
                             <input type="checkbox" th:name="'onlyWorkdays_' + ${engineer.number}"
-                                   th:checked="${engineer.onlyWorkdays}"/>
+                                   th:checked="${engineer.onlyWorkdays}" th:disabled="${!isAdmin}"/>
                             лише робочі дні
                         </label>
+                        <button th:if="${isAdmin}" type="submit" form="remove-engineer-form" name="number"
+                                class="remove-btn" th:value="${engineer.number}"
+                                onclick="return confirm('Видалити цього адміністратора з графіка? Усі його позначки за місяць буде втрачено.');">
+                            Видалити
+                        </button>
                     </td>
                     <td th:each="day : ${schedule.days}"
                         th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
@@ -59,6 +76,24 @@
             <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">Скасувати</a>
         </div>
     </form>
+
+    <div th:if="${isAdmin}" class="add-engineer-card">
+        <h2 class="add-engineer-title">Додати адміністратора</h2>
+        <form method="post" class="add-engineer-form"
+              th:action="@{/schedule/{ym}/edit/add-engineer(ym=${#temporals.format(month, 'yyyyMM')})}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="text" name="name" placeholder="Ім'я" required="required" class="name-input"/>
+            <label class="only-workdays-label">
+                <input type="checkbox" name="onlyWorkdays"/>
+                лише робочі дні
+            </label>
+            <button type="submit" class="save-btn">Додати</button>
+        </form>
+        <p class="add-engineer-note">
+            Новий адміністратор з'явиться з "вихідним" на кожен день місяця — позначки
+            проставляються окремо, вище.
+        </p>
+    </div>
 
 </div>
 </body>
