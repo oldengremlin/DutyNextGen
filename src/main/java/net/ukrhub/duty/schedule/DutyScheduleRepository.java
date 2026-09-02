@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -54,6 +55,37 @@ public class DutyScheduleRepository {
             throw new UncheckedIOException("Не вдалося записати " + file, e);
         }
         gitCommitService.commit(dataDir, file, commitMessage, authorName, authorEmail);
+    }
+
+    public boolean exists(YearMonth month) {
+        return Files.exists(fileFor(month));
+    }
+
+    /** Місяці графіка (за наявними файлами), не раніші за {@code from}, за зростанням. */
+    public List<YearMonth> existingMonthsFrom(YearMonth from) {
+        if (!Files.isDirectory(dataDir)) {
+            return List.of();
+        }
+        try (var files = Files.list(dataDir)) {
+            return files
+                    .map(p -> p.getFileName().toString())
+                    .filter(name -> name.matches("\\d{6}"))
+                    .map(name -> YearMonth.parse(name, FILE_NAME))
+                    .filter(month -> !month.isBefore(from))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не вдалося прочитати " + dataDir, e);
+        }
+    }
+
+    /** Видаляє файли графіка за перелічені місяці одним git-комітом. */
+    public void delete(List<YearMonth> months, String commitMessage, String authorName, String authorEmail) {
+        if (months.isEmpty()) {
+            return;
+        }
+        List<Path> files = months.stream().map(this::fileFor).toList();
+        gitCommitService.delete(dataDir, files, commitMessage, authorName, authorEmail);
     }
 
     public Path fileFor(YearMonth month) {

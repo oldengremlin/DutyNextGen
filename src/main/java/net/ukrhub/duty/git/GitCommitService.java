@@ -62,6 +62,26 @@ public class GitCommitService {
                 authorName, authorEmail, gitDate);
     }
 
+    /** Видаляє перелічені файли одним комітом (наприклад, каскадне видалення майбутніх місяців). */
+    public void delete(Path dataDir, List<Path> filesToDelete, String message, String authorName, String authorEmail) {
+        ensureRepo(dataDir);
+
+        List<String> relativePaths = filesToDelete.stream()
+                .map(f -> dataDir.relativize(f).toString())
+                .toList();
+
+        List<String> rmCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+                "rm", "--quiet", "--ignore-unmatch", "--"));
+        rmCommand.addAll(relativePaths);
+        run(dataDir, rmCommand);
+
+        String gitDate = OffsetDateTime.now().format(GIT_DATE);
+        List<String> commitCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+                "commit", "--quiet", "-m", message, "--"));
+        commitCommand.addAll(relativePaths);
+        run(dataDir, commitCommand, authorName, authorEmail, gitDate);
+    }
+
     /**
      * Історія комітів конкретного файлу — новіші перші, як віддає
      * {@code git log}. {@code --follow}, щоб не губити історію, якщо

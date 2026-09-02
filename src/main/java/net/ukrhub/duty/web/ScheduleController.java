@@ -46,8 +46,13 @@ public class ScheduleController {
         DutySchedule schedule = repository.find(month).orElse(null);
         model.addAttribute("schedule", schedule);
 
-        model.addAttribute("canEdit", RoleCheck.has(authentication, Role.EDITOR) || RoleCheck.has(authentication, Role.ADMIN));
-        model.addAttribute("isAdmin", RoleCheck.has(authentication, Role.ADMIN));
+        boolean isAdmin = RoleCheck.has(authentication, Role.ADMIN);
+        model.addAttribute("canEdit", RoleCheck.has(authentication, Role.EDITOR) || isAdmin);
+        model.addAttribute("isAdmin", isAdmin);
+        model.addAttribute("canGenerateNext",
+                isAdmin && schedule != null && !repository.exists(month.plusMonths(1)));
+        model.addAttribute("canDelete",
+                isAdmin && schedule != null && month.isAfter(YearMonth.now()));
 
         return "schedule";
     }

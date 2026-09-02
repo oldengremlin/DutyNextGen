@@ -68,9 +68,11 @@ body {
     border: 1px solid var(--border);
     color: var(--accent);
     text-decoration: none;
+    font: inherit;
     font-weight: 600;
     font-size: 0.95rem;
     white-space: nowrap;
+    cursor: pointer;
 }
 
 .nav-btn:hover {

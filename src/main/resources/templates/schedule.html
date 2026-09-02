@@ -14,6 +14,10 @@
         <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${nextYm})}">наступний &rarr;</a>
     </div>
 
+    <div th:if="${generationError != null}" class="edit-errors">
+        <span th:text="${generationError}"></span>
+    </div>
+
     <div th:if="${schedule == null}" class="empty-state">
         Даних за <span th:text="${monthLabel}"></span> ще немає.
     </div>
@@ -56,12 +60,21 @@
         <span class="legend-item"><span class="mark mark-sick">Л</span> лікарняний</span>
         <span class="legend-item"><span class="mark mark-session">С</span> сесія</span>
         <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
-        <span style="margin-left: auto; display: flex; gap: 0.5rem;">
+        <span style="margin-left: auto; display: flex; gap: 0.5rem;" th:with="ym=${#temporals.format(month, 'yyyyMM')}">
             <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
-            <a class="nav-btn noprint"
-               th:href="@{/schedule/{ym}/history(ym=${#temporals.format(month, 'yyyyMM')})}">Історія</a>
-            <a th:if="${canEdit}" class="nav-btn noprint"
-               th:href="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">Редагувати</a>
+            <a class="nav-btn noprint" th:href="@{/schedule/{ym}/history(ym=${ym})}">Історія</a>
+            <a th:if="${canEdit}" class="nav-btn noprint" th:href="@{/schedule/{ym}/edit(ym=${ym})}">Редагувати</a>
+            <form th:if="${canGenerateNext}" method="post" class="noprint"
+                  th:action="@{/schedule/{ym}/generate-next(ym=${ym})}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn" th:text="'Згенерувати ' + ${nextYm}"></button>
+            </form>
+            <form th:if="${canDelete}" method="post" class="noprint"
+                  th:action="@{/schedule/{ym}/delete(ym=${ym})}"
+                  onsubmit="return confirm('Видалити графік цього місяця і всі наступні наявні місяці? Дію неможливо скасувати з веб-інтерфейсу.');">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="remove-btn">Видалити місяць</button>
+            </form>
         </span>
     </div>
 
