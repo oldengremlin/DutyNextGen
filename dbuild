@@ -20,18 +20,19 @@ docker run -d \
     --name duty-nextgen \
     oldengremlin/duty-nextgen:latest
 
-# CalDAV-синхронізація (Baikal) — вимкнена, доки не задано. Секрети
-# (пароль) не тримати в цьому файлі — брати з окремого secrets-файлу
-# й підставляти в docker run через --env-file, за аналогією з тим,
-# як застарілий проєкт тримає /etc/duty-caldav.conf поза CVS/git:
+# CalDAV-синхронізація (Baikal) — вимкнена, доки не задано. Найпростіше:
+# покласти /safe/duty-nextgen/config/duty-caldav.conf (той самий формат
+# CALDAV_BASE_URL/CALDAV_USER/CALDAV_PASS, яким користувався застарілий
+# duty-caldav-sync, і те саме "поза CVS/git" розташування) — застосунок
+# сам його прочитає з уже змонтованого /config, без жодних змін у
+# docker run. Змінні середовища DUTY_CALDAV_BASE_URL/_USER/_PASSWORD —
+# альтернатива (мають пріоритет над файлом, якщо задані обидва):
 #
 # docker run -d ... \
 #     -e DUTY_CALDAV_BASE_URL="https://www.ukr-com.net:7580/dav.php/calendars/NOC/CALENDAR" \
 #     -e DUTY_CALDAV_USER="..." \
 #     -e DUTY_CALDAV_PASSWORD="..." \
 #     ...
-# або те саме через --env-file /safe/duty-nextgen/caldav.env (сам файл
-# теж поза git — той самий підхід, що й duty-caldav.conf).
 
 docker update --restart unless-stopped duty-nextgen
 
