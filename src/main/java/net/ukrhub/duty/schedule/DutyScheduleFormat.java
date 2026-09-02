@@ -15,7 +15,9 @@ import java.util.Map;
 /**
  * Читання й запис текстового формату графіка, успадкованого від
  * застарілого Perl-проєкту: секції {@code [ Names ]} / {@code [ Dates ] } /
- * {@code [ LastDay0 ] } / {@code [ LastDay1 ] }, позначки D/W/O/I/-.
+ * {@code [ LastDay0 ] } / {@code [ LastDay1 ] }, позначки D/W/O/I/S/-, і
+ * опційний маркер свята {@code *} одразу після скорочення дня тижня
+ * (напр. {@code 1  Th*}) — {@link DutyDay#holiday()}.
  *
  * <p>Формат навмисно не змінюється (людинозрозумілий, добре діффиться в
  * git) — змінюється лише кодування (UTF-8 замість KOI8-U) і те, що новий
@@ -79,8 +81,13 @@ public final class DutyScheduleFormat {
         }
         String[] tokens = line.trim().split("\\s+");
         int day = Integer.parseInt(tokens[0]);
+        String dowToken = tokens.length > 1 ? tokens[1] : "";
+        // Державне свято/особливий день позначається "*" одразу після
+        // скорочення дня тижня (напр. "1  Th*") — успадковано з index.pl.
+        boolean holiday = dowToken.endsWith("*");
+        String dowAbbrev = holiday ? dowToken.substring(0, dowToken.length() - 1) : dowToken;
         Map<Integer, DutyMark> marks = marksFor(tokens, 2, engineers);
-        days.add(new DutyDay(day, dowFor(tokens.length > 1 ? tokens[1] : null), marks));
+        days.add(new DutyDay(day, dowFor(dowAbbrev), holiday, marks));
     }
 
     private static void parseTailLine(String line, List<Engineer> engineers, Map<Integer, DutyMark> out) {
@@ -131,7 +138,8 @@ public final class DutyScheduleFormat {
         }
         sb.append('\n');
         for (DutyDay day : schedule.days()) {
-            sb.append(String.format("%-2d %s", day.day(), abbrevFor(day.dow())));
+            String dowField = abbrevFor(day.dow()) + (day.holiday() ? "*" : "");
+            sb.append(String.format("%-2d %s", day.day(), dowField));
             for (Engineer e : schedule.engineers()) {
                 sb.append('\t').append(day.markFor(e.number()).code());
             }

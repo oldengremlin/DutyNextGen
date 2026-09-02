@@ -28,6 +28,9 @@ public final class UkrainianCalendar {
     }
 
     public static String dayOfWeekShort(DayOfWeek dow) {
-        return DOW_SHORT[dow.getValue() - 1];
+        // dow буває null для рядка графіка, який не вдалося розпізнати
+        // (пошкоджені/нестандартні дані) — краще показати "?", ніж
+        // упустити всю сторінку через один битий рядок.
+        return dow == null ? "?" : DOW_SHORT[dow.getValue() - 1];
     }
 }

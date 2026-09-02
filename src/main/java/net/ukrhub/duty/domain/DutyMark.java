@@ -48,4 +48,16 @@ public enum DutyMark {
     public String cssClass() {
         return "mark-" + name().toLowerCase();
     }
+
+    /** Повна українська назва — для випадного списку у формі редагування. */
+    public String displayName() {
+        return switch (this) {
+            case DUTY -> "Чергування";
+            case WORK -> "Робочий день";
+            case VACATION -> "Відпустка";
+            case SICK -> "Лікарняний";
+            case SESSION -> "Сесія";
+            case OFF -> "Вихідний";
+        };
+    }
 }

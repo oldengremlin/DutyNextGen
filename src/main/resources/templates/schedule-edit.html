@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Редагування — ' + ${monthLabel}">Редагування графіка</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">&larr; скасувати</a>
+        <h1 class="month-title" th:text="'Редагування: ' + ${monthLabel}">Редагування</h1>
+        <span style="width: 6.5rem;"></span>
+    </div>
+
+    <form method="post" th:action="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <div class="table-card">
+            <table class="edit-table">
+                <thead>
+                <tr>
+                    <th class="name-col">Адміністратор</th>
+                    <th th:each="day : ${schedule.days}"
+                        th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
+                        <span class="day-num" th:text="${day.day}">1</span>
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="engineer : ${schedule.engineers}">
+                    <td class="name-col">
+                        <input type="text" class="name-input" th:name="'name_' + ${engineer.number}"
+                               th:value="${engineer.name}"/>
+                        <label class="only-workdays-label">
+                            <input type="checkbox" th:name="'onlyWorkdays_' + ${engineer.number}"
+                                   th:checked="${engineer.onlyWorkdays}"/>
+                            лише робочі дні
+                        </label>
+                    </td>
+                    <td th:each="day : ${schedule.days}"
+                        th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
+                        <select th:name="'mark_' + ${day.day} + '_' + ${engineer.number}">
+                            <option th:each="mark : ${marks}"
+                                    th:value="${mark.code}"
+                                    th:text="${mark.displayLetter} + ' — ' + ${mark.displayName}"
+                                    th:selected="${day.markFor(engineer.number) == mark}">
+                            </option>
+                        </select>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="edit-actions">
+            <button type="submit" class="save-btn">Зберегти</button>
+            <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">Скасувати</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>
