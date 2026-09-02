@@ -557,8 +557,33 @@ td.hover-col, th.hover-col {
         position: static;
     }
 
+    /* За екранного вигляду ширину задає вміст (name-col min-width
+       9.5rem, nowrap на кожній із 28-31 денної колонки) — на сторінці
+       (навіть альбомній) це не влазить, і Firefox/Chrome не стискають
+       таблицю самі (лише вручну, "Заповнити по ширині"): без
+       table-layout:fixed таблицю просто обрізає праворуч замість
+       стиснення. Fixed-розкладка ігнорує min-content і ділить ширину
+       сторінки під усі колонки примусово. */
     table {
-        font-size: 11pt;
+        font-size: 8.5pt;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    th, td {
+        padding: 0.2rem 0.1rem;
+        white-space: normal;
+        overflow: hidden;
+    }
+
+    .name-col {
+        min-width: 0;
+        width: 11%;
+        overflow: visible;
+    }
+
+    thead th .day-num {
+        font-size: 0.85rem;
     }
 
     tr {
