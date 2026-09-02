@@ -10,6 +10,7 @@ public enum DutyMark {
     WORK('W'),       // звичайний робочий день
     VACATION('O'),   // відпустка
     SICK('I'),       // лікарняний
+    SESSION('S'),    // сесія (студенти на заочному/вечірньому навчанні)
     OFF('-');         // вихідний / немає позначки
 
     private final char code;
@@ -38,6 +39,7 @@ public enum DutyMark {
             case WORK -> "Р";
             case VACATION -> "В";
             case SICK -> "Л";
+            case SESSION -> "С";
             case OFF -> "";
         };
     }
