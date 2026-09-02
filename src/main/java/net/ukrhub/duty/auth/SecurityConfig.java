@@ -25,10 +25,11 @@ import org.springframework.security.web.SecurityFilterChain;
  * <p>Три ролі — {@link Role}: перегляд ({@code VIEWER}) доступний будь-
  * якому автентифікованому користувачу; редагування позначок графіка —
  * {@code EDITOR}/{@code ADMIN}; керування ростером місяця (додати/
- * видалити адміністратора) й обліковими записами ({@code /admin/**}) —
- * лише {@code ADMIN}. Заборону редагувати П.І.Б./тип у самій формі
- * позначок (та сама POST-адреса, що й позначки) URL-матчер не покриває —
- * це перевіряється додатково в {@code ScheduleEditController}.
+ * видалити адміністратора), генерація/видалення місячних графіків і
+ * облікові записи ({@code /admin/**}) — лише {@code ADMIN}. Заборону
+ * редагувати П.І.Б./тип у самій формі позначок (та сама POST-адреса, що
+ * й позначки) URL-матчер не покриває — це перевіряється додатково в
+ * {@code ScheduleEditController}.
  */
 @Configuration
 @EnableWebSecurity
@@ -40,7 +41,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.springRole())
                         .requestMatchers(HttpMethod.POST,
-                                "/schedule/*/edit/add-engineer", "/schedule/*/edit/remove-engineer")
+                                "/schedule/*/edit/add-engineer", "/schedule/*/edit/remove-engineer",
+                                "/schedule/*/generate-next", "/schedule/*/delete")
                         .hasRole(Role.ADMIN.springRole())
                         .requestMatchers("/schedule/*/edit").hasAnyRole(Role.EDITOR.springRole(), Role.ADMIN.springRole())
                         .anyRequest().authenticated())
