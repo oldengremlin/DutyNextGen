@@ -1,0 +1,32 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Compiled
+*.class
+
+# IDE (NetBeans / IntelliJ / Eclipse / VS Code)
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime / local overrides
+application-local.yml
+application-local.properties
+*.pid
