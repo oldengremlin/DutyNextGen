@@ -155,22 +155,49 @@ class UserAdminControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "solo-admin", roles = "ADMIN")
-    void cannotDowngradeTheLastAdminsRole() throws Exception {
-        UserStore.writeUser(usersFile(), "solo-admin", "hash", Role.ADMIN);
+    @WithMockUser(username = "acting-admin", roles = "ADMIN")
+    void otherAdminCanBeDowngradedWhenNotLast() throws Exception {
+        UserStore.writeUser(usersFile(), "acting-admin", "hash", Role.ADMIN);
         UserStore.writeUser(usersFile(), "another-admin", "hash2", Role.ADMIN);
-        // Двоє адмінів — пониження когось із них поки безпечне.
+
         mockMvc.perform(post("/admin/users/another-admin/role")
                         .with(csrf())
                         .param("role", "VIEWER"))
                 .andExpect(status().is3xxRedirection());
         assertThat(UserStore.readUsers(usersFile()).get("another-admin").role()).isEqualTo(Role.VIEWER);
+    }
 
-        // Лишився один адмін ("solo-admin") — понизити вже не можна.
+    /**
+     * Регресія на реальний випадок: адміністратор сам собі поніс роль
+     * через /admin/users/{себе}/role, маючи ще одного адміна в системі —
+     * "останній адміністратор" тоді не спрацьовує (адмінів двоє), але
+     * саме ця сесія однаково втрачає права. Самозаборона має діяти
+     * незалежно від того, скільки ще є адміністраторів.
+     */
+    @Test
+    @WithMockUser(username = "self-admin", roles = "ADMIN")
+    void adminCannotChangeOwnRoleEvenWithAnotherAdminPresent() throws Exception {
+        UserStore.writeUser(usersFile(), "self-admin", "hash", Role.ADMIN);
+        UserStore.writeUser(usersFile(), "other-admin", "hash2", Role.ADMIN);
+
+        mockMvc.perform(post("/admin/users/self-admin/role")
+                        .with(csrf())
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("self-admin").role()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    @WithMockUser(username = "solo-admin", roles = "ADMIN")
+    void adminCannotChangeOwnRoleWhenSoleAdmin() throws Exception {
+        UserStore.writeUser(usersFile(), "solo-admin", "hash", Role.ADMIN);
+
         mockMvc.perform(post("/admin/users/solo-admin/role")
                         .with(csrf())
                         .param("role", "VIEWER"))
                 .andExpect(status().isBadRequest());
+
         assertThat(UserStore.readUsers(usersFile()).get("solo-admin").role()).isEqualTo(Role.ADMIN);
     }
 
