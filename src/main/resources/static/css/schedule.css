@@ -17,6 +17,8 @@
     --vacation-fg: #14612f;
     --sick-bg: #fbe0e2;
     --sick-fg: #8a1f2a;
+    --session-bg: #e6def7;
+    --session-fg: #4b2e8a;
 }
 
 * {
@@ -183,6 +185,11 @@ td.today, th.today {
 .mark-sick {
     background: var(--sick-bg);
     color: var(--sick-fg);
+}
+
+.mark-session {
+    background: var(--session-bg);
+    color: var(--session-fg);
 }
 
 .legend {
