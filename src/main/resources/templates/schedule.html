@@ -24,7 +24,7 @@
             <tr>
                 <th class="name-col">Адміністратор</th>
                 <th th:each="day : ${schedule.days}"
-                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.day} == ${todayDay} ? 'today' : '')">
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday ' : '') + (${day.day} == ${todayDay} ? 'today' : '')">
                     <span class="day-num" th:text="${day.day}">1</span>
                     <span th:text="${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(day.dow)}">Пн</span>
                 </th>
@@ -38,7 +38,7 @@
                           title="Лише робочі дні, не чергує">роб. дні</span>
                 </td>
                 <td th:each="day : ${schedule.days}"
-                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.day} == ${todayDay} ? 'today' : '')"
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday ' : '') + (${day.day} == ${todayDay} ? 'today' : '')"
                     th:with="mark=${day.markFor(engineer.number)}">
                     <span th:if="${mark.name() != 'OFF'}"
                           th:class="'mark ' + ${mark.cssClass()}"
@@ -55,6 +55,9 @@
         <span class="legend-item"><span class="mark mark-vacation">В</span> відпустка</span>
         <span class="legend-item"><span class="mark mark-sick">Л</span> лікарняний</span>
         <span class="legend-item"><span class="mark mark-session">С</span> сесія</span>
+        <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
+        <a class="nav-btn noprint" style="margin-left: auto;"
+           th:href="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">Редагувати</a>
     </div>
 
     <div class="footer-note">Duty NextGen</div>

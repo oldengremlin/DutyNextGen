@@ -86,4 +86,25 @@ class ScheduleControllerTest {
         assertThat(response.getBody()).contains("Марченко І.");
         assertThat(response.getBody()).contains("mark-duty");
     }
+
+    /**
+     * Регресія на реальний production-баг: сторінка падала з 500 на
+     * місяці зі святковим маркером ("1  Fr*" у файлі) — рендер шаблону
+     * викликав UkrainianCalendar.dayOfWeekShort(day.dow) при dow == null.
+     */
+    @Test
+    void monthWithHolidayRendersWithoutError() {
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2031, 4),
+                List.of(new Engineer(1, "Марченко І.", false)),
+                List.of(new DutyDay(1, DayOfWeek.FRIDAY, true, Map.of(1, DutyMark.DUTY))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "тест-свято", "Тест", "test@example.com");
+
+        ResponseEntity<String> response = authed().getForEntity("/schedule/203104", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("holiday");
+    }
 }
