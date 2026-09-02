@@ -320,6 +320,29 @@ td.today, th.today {
     background: var(--sick-bg);
 }
 
+/* Той самий розмір, що й .nav-btn (щоб кнопки в одному ряду мали однакову
+   висоту), але в кольорах .remove-btn — для дій на рівні місяця, а не рядка
+   таблиці (напр. "Видалити місяць" поруч із "Редагувати"/"Історія"). */
+.nav-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    padding: 0.5rem 1rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--sick-fg);
+    background: var(--surface);
+    color: var(--sick-fg);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.nav-btn-danger:hover {
+    background: var(--sick-bg);
+}
+
 .add-engineer-card {
     background: var(--surface);
     border: 1px solid var(--border);

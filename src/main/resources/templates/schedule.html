@@ -79,7 +79,7 @@
                   th:action="@{/schedule/{ym}/delete(ym=${ym})}"
                   onsubmit="return confirm('Видалити графік цього місяця і всі наступні наявні місяці? Дію неможливо скасувати з веб-інтерфейсу.');">
                 <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                <button type="submit" class="remove-btn">Видалити місяць</button>
+                <button type="submit" class="nav-btn-danger">Видалити місяць</button>
             </form>
         </span>
     </div>
