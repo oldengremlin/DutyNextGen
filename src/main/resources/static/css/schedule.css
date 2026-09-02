@@ -571,19 +571,29 @@ td.hover-col, th.hover-col {
     }
 
     th, td {
-        padding: 0.2rem 0.1rem;
+        padding: 0.2rem 0.15rem;
         white-space: normal;
         overflow: hidden;
+        /* Без цього суміжні вузькі колонки нічим не розділені — підпис
+           дня тижня зорово зливається із сусіднім (border-bottom є,
+           вертикального розділювача нема). */
+        border-right: 1px solid var(--border);
+    }
+
+    th:last-child, td:last-child {
+        border-right: none;
     }
 
     .name-col {
+        /* 11% було замало — навіть коротке "Журавльова К." (без бейджа
+           "роб. дні") ламалось на два рядки без потреби. */
         min-width: 0;
-        width: 11%;
+        width: 15%;
         overflow: visible;
     }
 
     thead th .day-num {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
     }
 
     tr {
