@@ -50,8 +50,9 @@ mvn spring-boot:run
 Каталог з даними графіка задається змінною середовища `DUTY_DATA_DIR`
 (за замовчуванням `./data/duty`), каталог конфігурації (облікові записи
 веб-автентифікації) — `DUTY_CONFIG_DIR` (за замовчуванням `./config`).
-Налаштування CalDAV — `DUTY_CALDAV_BASE_URL`, `DUTY_CALDAV_USER`,
-`DUTY_CALDAV_PASSWORD`, `DUTY_CALDAV_STATE_DIR` (кеш стану синку,
+Налаштування CalDAV — або файл `<config-dir>/duty-caldav.conf`, або
+змінні середовища `DUTY_CALDAV_BASE_URL`/`DUTY_CALDAV_USER`/
+`DUTY_CALDAV_PASSWORD`, плюс `DUTY_CALDAV_STATE_DIR` (кеш стану синку,
 за замовчуванням `./data/caldav-state`) — детальніше нижче, розділ
 «CalDAV-синхронізація».
 
@@ -215,14 +216,24 @@ git-коміт з іменем користувача, який зайшов ч�
   сервером. Рахується вручну (`DigestAuth`), без
   `java.net.Authenticator.setDefault` — той глобальний для всього
   JVM-процесу.
-- **Налаштування** — `DUTY_CALDAV_BASE_URL` (URL CalDAV-колекції,
-  напр. `https://host:7580/dav.php/calendars/USER/CALENDAR`),
-  `DUTY_CALDAV_USER`, `DUTY_CALDAV_PASSWORD`, `DUTY_CALDAV_STATE_DIR`
-  (кеш стану — не облікові дані й не графік, можна безпечно стерти;
-  у Docker-образі — `/config/caldav-state`, усередині вже змонтованого
-  тому конфігурації). Секрети (пароль) — поза git, за тим самим
-  принципом, що й старий `/etc/duty-caldav.conf`: дивись коментар у
-  `dbuild`.
+- **Налаштування** — двома способами, перевіряються в цьому порядку:
+  1. Файл `<config-dir>/duty-caldav.conf` — той самий формат
+     (`CALDAV_BASE_URL="..."` / `CALDAV_USER="..."` / `CALDAV_PASS="..."`,
+     рядки `KEY="value"`, `#` — коментар), яким користувався застарілий
+     `duty-caldav-sync` (`CaldavConfFile`). Найпростіший спосіб —
+     покласти цей файл (як і раніше, поза CVS/git) прямо в уже
+     змонтований том `/config`, нічого більше не змінюючи; `DUTY_DIR`/
+     `STATE_DIR` з файлу ігноруються — у nextgen для цього свої шляхи
+     (`duty.data-dir`, `DUTY_CALDAV_STATE_DIR`, нижче).
+  2. Змінні середовища `DUTY_CALDAV_BASE_URL`
+     (напр. `https://host:7580/dav.php/calendars/USER/CALENDAR`),
+     `DUTY_CALDAV_USER`, `DUTY_CALDAV_PASSWORD` — мають пріоритет над
+     файлом, якщо задані обидва способи.
+
+  Окремо — `DUTY_CALDAV_STATE_DIR` (кеш стану синку: опубліковані UID +
+  хеші вмісту; не облікові дані й не графік, можна безпечно стерти) —
+  у Docker-образі типово `/config/caldav-state`, усередині вже
+  змонтованого тому конфігурації.
 
 ## Історія змін
 

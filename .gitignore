@@ -30,3 +30,8 @@ Thumbs.db
 application-local.yml
 application-local.properties
 *.pid
+
+# Локальний кеш стану CalDAV-синку (duty.caldav.state-dir типово
+# ./data/caldav-state — легко забути перевизначити при ручному
+# запуску jar без DUTY_CALDAV_STATE_DIR, тоді пише сюди).
+/data/caldav-state/

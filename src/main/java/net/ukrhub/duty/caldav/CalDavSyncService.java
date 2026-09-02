@@ -18,6 +18,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Синхронізація графіка поточного й наступного місяця з CalDAV
@@ -26,8 +27,11 @@ import java.util.Map;
  * зникли з актуального графіка — крім уже минулих, їх ніколи не
  * чіпаємо (сам {@link DutyIcsGenerator} їх і не генерує).
  *
- * <p>Не робить нічого, якщо {@code duty.caldav.base-url} не задано —
- * CalDAV навмисно вимкнений за замовчуванням.
+ * <p>Не робить нічого, якщо CalDAV не налаштовано — ні через
+ * {@code DUTY_CALDAV_BASE_URL} (та сусідні змінні середовища), ні через
+ * файл {@code <config-dir>/duty-caldav.conf} ({@link CaldavConfFile},
+ * той самий формат, яким користувався застарілий {@code duty-caldav-sync}).
+ * Змінні середовища мають пріоритет над файлом, якщо задано обидва.
  */
 @Service
 public class CalDavSyncService {
@@ -40,7 +44,21 @@ public class CalDavSyncService {
 
     public CalDavSyncService(DutyScheduleRepository repository, DutyProperties properties) {
         this.repository = repository;
-        this.config = properties.caldav();
+        this.config = resolveConfig(properties);
+    }
+
+    private static DutyProperties.Caldav resolveConfig(DutyProperties properties) {
+        DutyProperties.Caldav fromEnv = properties.caldav();
+        if (fromEnv != null && fromEnv.configured()) {
+            return fromEnv;
+        }
+        String stateDir = fromEnv != null ? fromEnv.stateDir() : null;
+        Optional<DutyProperties.Caldav> fromFile = CaldavConfFile.readIfPresent(properties.configDirPath(), stateDir);
+        if (fromFile.isPresent()) {
+            log.info("CalDAV налаштовано з {}/duty-caldav.conf", properties.configDirPath());
+            return fromFile.get();
+        }
+        return fromEnv;
     }
 
     public boolean configured() {

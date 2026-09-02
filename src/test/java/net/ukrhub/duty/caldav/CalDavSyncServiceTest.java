@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.YearMonth;
@@ -57,6 +58,39 @@ class CalDavSyncServiceTest {
 
         assertThat(service.configured()).isFalse();
         service.syncCurrentAndNext(); // не мало б навіть спробувати з'єднання
+    }
+
+    /**
+     * Реальний випадок: адміністратор поклав duty-caldav.conf (формат
+     * застарілого duty-caldav-sync) у змонтований config-dir, не
+     * торкаючись DUTY_CALDAV_*-змінних середовища (яких там і нема).
+     */
+    @Test
+    void picksUpConfigFromDutyCaldavConfFileWhenEnvIsBlank(@TempDir Path tempDir) throws IOException {
+        try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
+            Path configDir = tempDir.resolve("config");
+            Files.createDirectories(configDir);
+            Files.writeString(configDir.resolve("duty-caldav.conf"), """
+                    CALDAV_BASE_URL="%s"
+                    CALDAV_USER="noc"
+                    CALDAV_PASS="secret"
+                    """.formatted(server.baseUrl()));
+
+            DutyProperties.Caldav blankCaldav = new DutyProperties.Caldav(
+                    "", "", "", tempDir.resolve("caldav-state").toString());
+            DutyProperties properties = new DutyProperties(
+                    tempDir.resolve("data").toString(), configDir.toString(), blankCaldav);
+            DutyScheduleRepository repository = new DutyScheduleRepository(properties, new GitCommitService());
+            YearMonth month = YearMonth.of(2040, 10);
+            seed(repository, month, DutyMark.DUTY);
+
+            CalDavSyncService service = new CalDavSyncService(repository, properties);
+
+            assertThat(service.configured()).isTrue();
+            service.syncMonth(month);
+
+            assertThat(server.putUids).containsExactly("duty-20401001-1@duty.ukrhub.net");
+        }
     }
 
     @Test
