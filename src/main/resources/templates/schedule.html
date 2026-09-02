@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${monthLabel} + ' — графік чергувань'">Графік чергувань</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${prevYm})}">&larr; попередній</a>
+        <h1 class="month-title" th:text="${monthLabel}">Місяць Рік</h1>
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${nextYm})}">наступний &rarr;</a>
+    </div>
+
+    <div th:if="${schedule == null}" class="empty-state">
+        Даних за <span th:text="${monthLabel}"></span> ще немає.
+    </div>
+
+    <div th:if="${schedule != null}" class="table-card">
+        <table>
+            <thead>
+            <tr>
+                <th class="name-col">Адміністратор</th>
+                <th th:each="day : ${schedule.days}"
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.day} == ${todayDay} ? 'today' : '')">
+                    <span class="day-num" th:text="${day.day}">1</span>
+                    <span th:text="${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(day.dow)}">Пн</span>
+                </th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="engineer : ${schedule.engineers}">
+                <td class="name-col">
+                    <span th:text="${engineer.name}">Ім'я</span>
+                    <span th:if="${engineer.onlyWorkdays}" class="badge-only-workdays"
+                          title="Лише робочі дні, не чергує">роб. дні</span>
+                </td>
+                <td th:each="day : ${schedule.days}"
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.day} == ${todayDay} ? 'today' : '')"
+                    th:with="mark=${day.markFor(engineer.number)}">
+                    <span th:if="${mark.name() != 'OFF'}"
+                          th:class="'mark ' + ${mark.cssClass()}"
+                          th:text="${mark.displayLetter()}">Ч</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${schedule != null}" class="legend">
+        <span class="legend-item"><span class="mark mark-duty">Ч</span> чергування</span>
+        <span class="legend-item"><span class="mark mark-work">Р</span> робочий день</span>
+        <span class="legend-item"><span class="mark mark-vacation">В</span> відпустка</span>
+        <span class="legend-item"><span class="mark mark-sick">Л</span> лікарняний</span>
+    </div>
+
+    <div class="footer-note">Duty NextGen</div>
+
+</div>
+</body>
+</html>
