@@ -19,7 +19,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DutyScheduleRepositoryIT {
+class DutyScheduleRepositoryTest {
 
     @Test
     void savingScheduleWritesFileAndCommitsToOwnGitRepo(@TempDir Path tempDir) throws IOException, InterruptedException {
