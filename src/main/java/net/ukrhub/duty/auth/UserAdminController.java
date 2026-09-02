@@ -92,8 +92,18 @@ public class UserAdminController {
     }
 
     @PostMapping("/admin/users/{username}/role")
-    public String changeRole(@PathVariable String username, @RequestParam Role role) {
+    public String changeRole(@PathVariable String username, @RequestParam Role role, Principal principal) {
         UserStore.StoredUser existing = requireUser(username);
+        // Безумовно, як і самовидалення нижче — інакше адміністратор,
+        // маючи колегу-адміна, може сам собі за секунду прибрати права
+        // й лишитися звичайним користувачем: система в цілому лишається
+        // в безпеці (інший адмін є), але саме ця сесія вже ні на що не
+        // впливає. requireNotLastAdmin() нижче — про запас на випадок,
+        // якщо колись цю самозаборону послаблять.
+        if (principal != null && principal.getName().equals(username)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Не можна змінити роль самому собі — попроси іншого адміністратора або скористайся CLI");
+        }
         if (existing.role() == Role.ADMIN && role != Role.ADMIN) {
             requireNotLastAdmin();
         }
