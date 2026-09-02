@@ -20,6 +20,6 @@ public class CalDavSyncScheduler {
 
     @Scheduled(fixedDelay = 300_000)
     public void sync() {
-        syncService.syncCurrentAndNext();
+        syncService.syncRecentMonths();
     }
 }

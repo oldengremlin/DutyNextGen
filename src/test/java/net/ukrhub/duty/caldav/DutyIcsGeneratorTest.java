@@ -30,7 +30,7 @@ class DutyIcsGeneratorTest {
     void dutyMarkProducesEightToTwentyEvent() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.DUTY, 2, DutyMark.OFF), DayOfWeek.TUESDAY);
 
-        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1));
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
 
         assertThat(events).hasSize(1);
         IcsEvent event = events.get(0);
@@ -55,7 +55,7 @@ class DutyIcsGeneratorTest {
     @Test
     void categoriesMatchDisplayNameForEveryMark() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.WORK, 2, DutyMark.VACATION), DayOfWeek.TUESDAY);
-        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1));
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
 
         String workBody = events.stream().filter(e -> e.uid().endsWith("-1@duty.ukrhub.net")).findFirst()
                 .orElseThrow().body();
@@ -74,10 +74,8 @@ class DutyIcsGeneratorTest {
         LocalDate tuesday = LocalDate.of(2040, 1, 1).with(TemporalAdjusters.nextOrSame(DayOfWeek.TUESDAY));
         LocalDate friday = LocalDate.of(2040, 1, 1).with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY));
 
-        String tuesdayBody = DutyIcsGenerator.generate(scheduleForDate(tuesday, DutyMark.WORK), tuesday)
-                .get(0).body();
-        String fridayBody = DutyIcsGenerator.generate(scheduleForDate(friday, DutyMark.WORK), friday)
-                .get(0).body();
+        String tuesdayBody = DutyIcsGenerator.generate(scheduleForDate(tuesday, DutyMark.WORK)).get(0).body();
+        String fridayBody = DutyIcsGenerator.generate(scheduleForDate(friday, DutyMark.WORK)).get(0).body();
 
         assertThat(tuesdayBody).contains("DTSTART:" + ymd(tuesday) + "T090000\r\n")
                 .contains("DTEND:" + ymd(tuesday) + "T173000\r\n");
@@ -98,7 +96,7 @@ class DutyIcsGeneratorTest {
     void vacationSickAndSessionProduceAllDayEvents() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.VACATION, 2, DutyMark.SICK), DayOfWeek.TUESDAY);
 
-        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1));
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
 
         assertThat(events).hasSize(2);
         String vacationBody = events.stream().filter(e -> e.uid().endsWith("-1@duty.ukrhub.net")).findFirst()
@@ -118,7 +116,7 @@ class DutyIcsGeneratorTest {
     void sessionMarkIsAllDayEventTooNextgenExtension() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.SESSION, 2, DutyMark.OFF), DayOfWeek.TUESDAY);
 
-        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1));
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
 
         assertThat(events).hasSize(1);
         assertThat(events.get(0).body())
@@ -131,14 +129,20 @@ class DutyIcsGeneratorTest {
     void offMarkProducesNoEvent() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.OFF, 2, DutyMark.OFF), DayOfWeek.TUESDAY);
 
-        assertThat(DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1))).isEmpty();
+        assertThat(DutyIcsGenerator.generate(schedule)).isEmpty();
     }
 
+    /**
+     * На відміну від застарілого duty2ics.pl: минулі дні теж публікуються
+     * (позначки іноді проставляють заднім числом, напр. лікарняний
+     * оформили постфактум) — генератор більше не фільтрує за "сьогодні",
+     * це тепер відповідальність CalDavSyncService (межа синхронізованих
+     * місяців, не днів).
+     */
     @Test
-    void pastDaysAreNeverPublished() {
+    void pastDaysAreAlsoPublished() {
         DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.DUTY, 2, DutyMark.OFF), DayOfWeek.TUESDAY);
 
-        // "Сьогодні" — 2 березня, а єдиний день у графіку — 1 березня (уже минуле).
-        assertThat(DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 2))).isEmpty();
+        assertThat(DutyIcsGenerator.generate(schedule)).hasSize(1);
     }
 }
