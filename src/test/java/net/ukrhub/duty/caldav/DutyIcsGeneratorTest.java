@@ -41,8 +41,29 @@ class DutyIcsGeneratorTest {
                 .contains("DTSTART:20330301T080000\r\n")
                 .contains("DTEND:20330301T200000\r\n")
                 .contains("SUMMARY:Чергування, Іванов І.\r\n")
+                .contains("CATEGORIES:Чергування\r\n")
                 .startsWith("BEGIN:VCALENDAR\r\n")
                 .endsWith("END:VCALENDAR\r\n");
+    }
+
+    /**
+     * У реальному Baikal-календарі вже є вручну заведена категорія
+     * "Відпустка" — CATEGORIES навмисно збігається з тим самим текстом,
+     * що й у SUMMARY (DutyMark.displayName()), щоб події не завели
+     * паралельний, схожий, але інший ярлик.
+     */
+    @Test
+    void categoriesMatchDisplayNameForEveryMark() {
+        DutySchedule schedule = scheduleWithMarks(Map.of(1, DutyMark.WORK, 2, DutyMark.VACATION), DayOfWeek.TUESDAY);
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, LocalDate.of(2033, 3, 1));
+
+        String workBody = events.stream().filter(e -> e.uid().endsWith("-1@duty.ukrhub.net")).findFirst()
+                .orElseThrow().body();
+        assertThat(workBody).contains("CATEGORIES:Робочий день\r\n");
+
+        String vacationBody = events.stream().filter(e -> e.uid().endsWith("-2@duty.ukrhub.net")).findFirst()
+                .orElseThrow().body();
+        assertThat(vacationBody).contains("CATEGORIES:Відпустка\r\n");
     }
 
     @Test
@@ -85,11 +106,12 @@ class DutyIcsGeneratorTest {
         assertThat(vacationBody)
                 .contains("DTSTART;VALUE=DATE:20330301\r\n")
                 .contains("DTEND;VALUE=DATE:20330302\r\n")
-                .contains("SUMMARY:Відпустка, Іванов І.\r\n");
+                .contains("SUMMARY:Відпустка, Іванов І.\r\n")
+                .contains("CATEGORIES:Відпустка\r\n");
 
         String sickBody = events.stream().filter(e -> e.uid().endsWith("-2@duty.ukrhub.net")).findFirst()
                 .orElseThrow().body();
-        assertThat(sickBody).contains("SUMMARY:Лікарняний, Петров П.\r\n");
+        assertThat(sickBody).contains("SUMMARY:Лікарняний, Петров П.\r\n").contains("CATEGORIES:Лікарняний\r\n");
     }
 
     @Test
@@ -101,7 +123,8 @@ class DutyIcsGeneratorTest {
         assertThat(events).hasSize(1);
         assertThat(events.get(0).body())
                 .contains("DTSTART;VALUE=DATE:20330301\r\n")
-                .contains("SUMMARY:Сесія, Іванов І.\r\n");
+                .contains("SUMMARY:Сесія, Іванов І.\r\n")
+                .contains("CATEGORIES:Сесія\r\n");
     }
 
     @Test
