@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Збірка й запуск duty-nextgen у Docker. За аналогією з dbuild
+# кореневого (застарілого) проєкту. data/config — зовнішні томи,
+# в образ не запікаються.
+
+docker network create events-network 2>/dev/null
+
+docker stop duty-nextgen
+docker container rm duty-nextgen
+docker container prune -f
+
+export DOCKER_BUILDKIT=0; docker build --network events-network -t oldengremlin/duty-nextgen:latest .
+
+docker run -d \
+    --network events-network \
+    -v /safe/duty-nextgen/data:/data \
+    -v /safe/duty-nextgen/config:/config \
+    -p 8080:8080 \
+    --name duty-nextgen \
+    oldengremlin/duty-nextgen:latest
+
+docker update --restart unless-stopped duty-nextgen
+
+# Первинна ініціалізація (один раз, після першого запуску) —
+# створити першого користувача веб-автентифікації:
+# docker exec -it duty-nextgen java -jar /app/app.jar add-user noc
