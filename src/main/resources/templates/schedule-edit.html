@@ -26,6 +26,13 @@
         <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
     </form>
 
+    <div th:if="${errors != null and !#lists.isEmpty(errors)}" class="edit-errors">
+        <strong>Не збережено — виправ і спробуй ще раз:</strong>
+        <ul>
+            <li th:each="error : ${errors}" th:text="${error}"></li>
+        </ul>
+    </div>
+
     <form method="post" th:action="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">
         <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
 
@@ -37,6 +44,10 @@
                     <th th:each="day : ${schedule.days}"
                         th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
                         <span class="day-num" th:text="${day.day}">1</span>
+                        <label class="holiday-toggle" title="Свято">
+                            <input type="checkbox" th:name="'holiday_' + ${day.day}" th:checked="${day.holiday}"/>
+                            св
+                        </label>
                     </th>
                 </tr>
                 </thead>

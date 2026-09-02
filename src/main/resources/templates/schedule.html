@@ -58,6 +58,8 @@
         <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
         <span style="margin-left: auto; display: flex; gap: 0.5rem;">
             <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
+            <a class="nav-btn noprint"
+               th:href="@{/schedule/{ym}/history(ym=${#temporals.format(month, 'yyyyMM')})}">Історія</a>
             <a th:if="${canEdit}" class="nav-btn noprint"
                th:href="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">Редагувати</a>
         </span>

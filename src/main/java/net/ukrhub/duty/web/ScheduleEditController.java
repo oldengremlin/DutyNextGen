@@ -66,7 +66,7 @@ public class ScheduleEditController {
 
     @PostMapping("/schedule/{ym}/edit")
     public String save(@PathVariable String ym, @RequestParam Map<String, String> params, Principal principal,
-                        Authentication authentication) {
+                        Authentication authentication, Model model) {
         YearMonth month = MonthPath.parse(ym);
         DutySchedule existing = repository.find(month)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Немає графіка за " + ym));
@@ -85,9 +85,24 @@ public class ScheduleEditController {
                         : e)
                 .toList();
 
+        // Свято можна проставити на будь-який день (не лише вихідний) —
+        // позначку редагує будь-хто, кому доступна ця форма, як і позначки
+        // по днях (не обмежено ADMIN, на відміну від П.І.Б./типу).
         List<DutyDay> days = existing.days().stream()
-                .map(day -> new DutyDay(day.day(), day.dow(), day.holiday(), marksFor(day, engineers, params)))
+                .map(day -> new DutyDay(day.day(), day.dow(), params.containsKey("holiday_" + day.day()),
+                        marksFor(day, engineers, params)))
                 .toList();
+
+        List<String> errors = validateNoWorkOnWeekendsAndHolidays(days, engineers);
+        if (!errors.isEmpty()) {
+            model.addAttribute("month", month);
+            model.addAttribute("monthLabel", UkrainianCalendar.monthName(month.getMonth()) + " " + month.getYear());
+            model.addAttribute("schedule", new DutySchedule(month, engineers, days, existing.lastDay0(), existing.lastDay1()));
+            model.addAttribute("marks", DutyMark.values());
+            model.addAttribute("isAdmin", isAdmin);
+            model.addAttribute("errors", errors);
+            return "schedule-edit";
+        }
 
         DutySchedule updated = new DutySchedule(month, engineers, days, existing.lastDay0(), existing.lastDay1());
 
@@ -96,6 +111,28 @@ public class ScheduleEditController {
                 username, username + "@duty.local");
 
         return "redirect:/schedule/" + ym;
+    }
+
+    /**
+     * У вихідні й свята не може бути "робочого дня" (W) — лише чергування
+     * та інші позначки (відпустка/лікарняний/сесія/вихідний). Так само
+     * поводився й генератор наступного місяця в застарілому проєкті
+     * (tds.pl примусово перетворював W на "-" для суботи/неділі).
+     */
+    private static List<String> validateNoWorkOnWeekendsAndHolidays(List<DutyDay> days, List<Engineer> engineers) {
+        List<String> errors = new ArrayList<>();
+        for (DutyDay day : days) {
+            if (!day.isWeekend() && !day.holiday()) {
+                continue;
+            }
+            for (Engineer e : engineers) {
+                if (day.markFor(e.number()) == DutyMark.WORK) {
+                    errors.add("%d число (%s): у %s не може бути позначки «Робочий день»".formatted(
+                            day.day(), day.holiday() ? "свято" : "вихідний", e.name()));
+                }
+            }
+        }
+        return errors;
     }
 
     @PostMapping("/schedule/{ym}/edit/add-engineer")
