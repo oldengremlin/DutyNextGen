@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Історія — ' + ${monthLabel}">Історія змін</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">&larr; до графіка</a>
+        <h1 class="month-title" th:text="'Історія: ' + ${monthLabel}">Історія</h1>
+        <span style="width: 6.5rem;"></span>
+    </div>
+
+    <div th:if="${#lists.isEmpty(entries)}" class="empty-state">
+        Для цього місяця ще нема жодного запису в історії.
+    </div>
+
+    <div th:each="entry : ${entries}" class="history-entry">
+        <div class="history-meta">
+            <span class="history-author" th:text="${entry.author}">Автор</span>
+            <span class="history-date" th:text="${entry.displayDate}">Дата</span>
+            <span class="history-hash" th:text="${entry.hash}">hash</span>
+        </div>
+        <div class="history-message" th:text="${entry.message}">Повідомлення</div>
+        <div class="history-diff">
+            <div th:each="line : ${entry.diffLines}" th:class="${line.cssClass}" th:text="${line.text}"></div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

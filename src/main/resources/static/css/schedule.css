@@ -378,6 +378,107 @@ td.today, th.today {
     border: 1px solid var(--border);
 }
 
+/* --- Історія змін --- */
+
+.history-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.history-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+
+.history-author {
+    font-weight: 650;
+}
+
+.history-date {
+    color: var(--muted);
+}
+
+.history-hash {
+    margin-left: auto;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.history-message {
+    font-weight: 550;
+    margin-bottom: 0.5rem;
+}
+
+.history-diff {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.78rem;
+    background: var(--bg);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    overflow-x: auto;
+    max-height: 22rem;
+    overflow-y: auto;
+}
+
+.history-diff > div {
+    white-space: pre;
+}
+
+.diff-add {
+    background: var(--vacation-bg);
+    color: var(--vacation-fg);
+}
+
+.diff-del {
+    background: var(--sick-bg);
+    color: var(--sick-fg);
+}
+
+.diff-hunk {
+    color: var(--accent);
+    font-weight: 650;
+}
+
+.diff-meta, .diff-file {
+    color: var(--muted);
+}
+
+.holiday-toggle {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.holiday-toggle input {
+    vertical-align: middle;
+}
+
+.edit-errors {
+    background: var(--sick-bg);
+    color: var(--sick-fg);
+    border: 1px solid var(--sick-fg);
+    border-radius: 0.7rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.edit-errors ul {
+    margin: 0.4rem 0 0;
+    padding-left: 1.25rem;
+}
+
 @media print {
     @page {
         size: landscape;

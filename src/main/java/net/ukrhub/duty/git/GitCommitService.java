@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -59,6 +60,41 @@ public class GitCommitService {
         String gitDate = OffsetDateTime.now().format(GIT_DATE);
         run(dataDir, List.of("git", "-C", dataDir.toString(), "commit", "--quiet", "-m", message, "--", relativePath),
                 authorName, authorEmail, gitDate);
+    }
+
+    /**
+     * Історія комітів конкретного файлу — новіші перші, як віддає
+     * {@code git log}. {@code --follow}, щоб не губити історію, якщо
+     * файл колись перейменовувався.
+     */
+    public List<CommitInfo> history(Path dataDir, Path file) {
+        String relativePath = dataDir.relativize(file).toString();
+        ProcessResult logResult = execute(dataDir, List.of("git", "-C", dataDir.toString(),
+                "log", "--follow", "--date=iso-strict", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s",
+                "--", relativePath), null, null, null);
+        if (logResult.exitCode() != 0) {
+            return List.of();
+        }
+
+        List<CommitInfo> commits = new ArrayList<>();
+        for (String line : logResult.output().split("\n")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            String[] parts = line.split("\u001F", 4);
+            if (parts.length < 4) {
+                continue;
+            }
+            String hash = parts[0];
+            commits.add(new CommitInfo(hash, parts[1], parts[2], parts[3], diffFor(dataDir, hash, relativePath)));
+        }
+        return commits;
+    }
+
+    private String diffFor(Path dataDir, String hash, String relativePath) {
+        ProcessResult result = execute(dataDir, List.of("git", "-C", dataDir.toString(),
+                "show", "--pretty=format:", hash, "--", relativePath), null, null, null);
+        return result.exitCode() == 0 ? result.output().strip() : "";
     }
 
     private void ensureRepo(Path dataDir) {

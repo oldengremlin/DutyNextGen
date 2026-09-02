@@ -200,4 +200,74 @@ class ScheduleEditControllerTest {
                         .param("number", "1"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
+    void workMarkOnWeekendIsRejectedAndNotSaved() throws Exception {
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2033, 2),
+                List.of(new Engineer(1, "Стара І.", false)),
+                List.of(new DutyDay(1, DayOfWeek.SATURDAY, Map.of(1, DutyMark.DUTY))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "сід-вихідний", "Тест", "test@example.com");
+
+        mockMvc.perform(post("/schedule/203302/edit")
+                        .with(csrf())
+                        .param("mark_1_1", "W"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("не може бути позначки")));
+
+        DutySchedule unchanged = repository.find(YearMonth.of(2033, 2)).orElseThrow();
+        assertThat(unchanged.days().get(0).markFor(1)).isEqualTo(DutyMark.DUTY);
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
+    void workMarkOnNewlyMarkedHolidayIsRejected() throws Exception {
+        // day 1 у сіді — субота, тому візьмемо звичайний будній день напряму.
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2033, 3),
+                List.of(new Engineer(1, "Стара І.", false)),
+                List.of(new DutyDay(1, DayOfWeek.TUESDAY, Map.of(1, DutyMark.WORK))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "сід-будній", "Тест", "test@example.com");
+
+        // Позначаємо будній день святом і лишаємо позначку W — має відхилитись.
+        mockMvc.perform(post("/schedule/203303/edit")
+                        .with(csrf())
+                        .param("holiday_1", "true")
+                        .param("mark_1_1", "W"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("свято")));
+
+        DutySchedule unchanged = repository.find(YearMonth.of(2033, 3)).orElseThrow();
+        assertThat(unchanged.days().get(0).holiday()).isFalse();
+    }
+
+    @Test
+    @WithMockUser(username = "noc", roles = "EDITOR")
+    void holidayCanBeToggledWhenMarksAreValid() throws Exception {
+        DutySchedule schedule = new DutySchedule(
+                YearMonth.of(2033, 4),
+                List.of(new Engineer(1, "Стара І.", false)),
+                List.of(new DutyDay(1, DayOfWeek.TUESDAY, Map.of(1, DutyMark.WORK))),
+                Map.of(1, DutyMark.OFF),
+                Map.of(1, DutyMark.OFF)
+        );
+        repository.save(schedule, "сід-будній", "Тест", "test@example.com");
+
+        mockMvc.perform(post("/schedule/203304/edit")
+                        .with(csrf())
+                        .param("holiday_1", "true")
+                        .param("mark_1_1", "D"))
+                .andExpect(status().is3xxRedirection());
+
+        DutySchedule updated = repository.find(YearMonth.of(2033, 4)).orElseThrow();
+        assertThat(updated.days().get(0).holiday()).isTrue();
+        assertThat(updated.days().get(0).markFor(1)).isEqualTo(DutyMark.DUTY);
+    }
 }

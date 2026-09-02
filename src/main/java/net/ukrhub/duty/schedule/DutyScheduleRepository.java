@@ -56,7 +56,11 @@ public class DutyScheduleRepository {
         gitCommitService.commit(dataDir, file, commitMessage, authorName, authorEmail);
     }
 
-    private Path fileFor(YearMonth month) {
+    public Path fileFor(YearMonth month) {
         return dataDir.resolve(FILE_NAME.format(month));
+    }
+
+    public Path dataDir() {
+        return dataDir;
     }
 }
