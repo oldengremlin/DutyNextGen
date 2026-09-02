@@ -14,7 +14,21 @@ import java.nio.file.Path;
 @ConfigurationProperties(prefix = "duty")
 public record DutyProperties(String dataDir, String configDir, Caldav caldav) {
 
-    public record Caldav(String baseUrl, String user, String password) {
+    /**
+     * @param stateDir каталог для стану синхронізації (опубліковані UID +
+     *                 хеші вмісту — {@code CalDavSyncService}), окремо від
+     *                 {@code configDir}: це не облікові дані і не графік,
+     *                 а суто внутрішній кеш, який можна безпечно стерти.
+     */
+    public record Caldav(String baseUrl, String user, String password, String stateDir) {
+
+        public boolean configured() {
+            return baseUrl != null && !baseUrl.isBlank();
+        }
+
+        public Path stateDirPath() {
+            return Path.of(stateDir);
+        }
     }
 
     public Path dataDirPath() {

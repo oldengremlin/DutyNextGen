@@ -18,6 +18,11 @@ duty:
   # зовнішній том, як і data-dir.
   config-dir: ${DUTY_CONFIG_DIR:./config}
   caldav:
+    # Порожній base-url = CalDAV-синхронізація вимкнена (типово) —
+    # ні фоновий job, ні кнопка "Синхронізувати" нічого не роблять.
     base-url: ${DUTY_CALDAV_BASE_URL:}
     user: ${DUTY_CALDAV_USER:}
     password: ${DUTY_CALDAV_PASSWORD:}
+    # Внутрішній кеш стану синку (опубліковані UID + хеші вмісту) —
+    # не облікові дані, не графік; можна безпечно стерти.
+    state-dir: ${DUTY_CALDAV_STATE_DIR:./data/caldav-state}
