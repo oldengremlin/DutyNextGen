@@ -13,6 +13,10 @@ duty:
   # [Names]/[Dates]/[LastDay0]/[LastDay1], що й у застарілому проєкті,
   # але в UTF-8 замість KOI8-U) та внутрішнім git-журналом змін.
   data-dir: ${DUTY_DATA_DIR:./data/duty}
+  # Каталог з обліковими записами веб-автентифікації (users.txt) —
+  # НЕ пов'язаний з git-історією графіка. У production — окремий
+  # зовнішній том, як і data-dir.
+  config-dir: ${DUTY_CONFIG_DIR:./config}
   caldav:
     base-url: ${DUTY_CALDAV_BASE_URL:}
     user: ${DUTY_CALDAV_USER:}
