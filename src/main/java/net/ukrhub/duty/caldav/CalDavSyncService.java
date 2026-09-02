@@ -11,9 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,11 +19,25 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Синхронізація графіка поточного й наступного місяця з CalDAV
- * (Baikal) — порт {@code duty-caldav-sync}: PUT нових/змінених подій
- * (за хешем вмісту, щоб не смикати сервер даремно), DELETE тих, що
- * зникли з актуального графіка — крім уже минулих, їх ніколи не
- * чіпаємо (сам {@link DutyIcsGenerator} їх і не генерує).
+ * Синхронізація графіка попереднього, поточного й наступного місяця з
+ * CalDAV (Baikal) — порт {@code duty-caldav-sync}: PUT нових/змінених
+ * подій (за хешем вмісту, щоб не смикати сервер даремно), DELETE тих,
+ * що зникли з актуального графіка.
+ *
+ * <p>На відміну від оригіналу (лише поточний+наступний, і лише "від
+ * сьогодні й далі" — {@code duty2ics.pl} відкидав минулі дні ще до
+ * порівняння), тут синхронізується весь попередній місяць і весь
+ * поточний, без фільтра за днем: позначки іноді проставляють заднім
+ * числом (напр. лікарняний оформили постфактум), і такий
+ * відредагований минулий день має так само дійти до CalDAV, як і
+ * майбутній. Захист від зайвого навантаження на сервер і від
+ * випадкового масового видалення старої історії — сама межа "лише ці
+ * три місяці", а не перевірка дати всередині них: місяці, старіші за
+ * попередній, {@link #syncRecentMonths()} узагалі не чіпає (і не читає,
+ * і не пише їхній стан), а в межах трьох синхронізованих місяців PUT чи
+ * DELETE відбувається виключно тоді, коли вміст дійсно змінився (за
+ * хешем) — незмінний день, минулий чи ні, просто нікуди не
+ * відправляється.
  *
  * <p>Не робить нічого, якщо CalDAV не налаштовано — ні через
  * {@code DUTY_CALDAV_BASE_URL} (та сусідні змінні середовища), ні через
@@ -37,7 +49,6 @@ import java.util.Optional;
 public class CalDavSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(CalDavSyncService.class);
-    private static final DateTimeFormatter YMD8 = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final DutyScheduleRepository repository;
     private final DutyProperties.Caldav config;
@@ -65,12 +76,13 @@ public class CalDavSyncService {
         return config != null && config.configured();
     }
 
-    /** Синхронізує поточний і наступний місяць. Нічого не робить, якщо CalDAV не налаштовано. */
-    public void syncCurrentAndNext() {
+    /** Синхронізує попередній, поточний і наступний місяць. Нічого не робить, якщо CalDAV не налаштовано. */
+    public void syncRecentMonths() {
         if (!configured()) {
             return;
         }
         YearMonth current = YearMonth.now();
+        syncMonth(current.minusMonths(1));
         syncMonth(current);
         syncMonth(current.plusMonths(1));
     }
@@ -81,8 +93,7 @@ public class CalDavSyncService {
             return;
         }
 
-        LocalDate today = LocalDate.now();
-        List<IcsEvent> events = DutyIcsGenerator.generate(schedule, today);
+        List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
         Map<String, String> oldState = CalDavSyncState.read(config.stateDirPath(), month);
         Map<String, String> newState = new LinkedHashMap<>();
         CalDavClient client = new CalDavClient(config.baseUrl(), config.user(), config.password());
@@ -109,10 +120,6 @@ public class CalDavSyncService {
             if (newState.containsKey(uid)) {
                 continue;
             }
-            LocalDate uidDate = dateFromUid(uid);
-            if (uidDate != null && uidDate.isBefore(today)) {
-                continue;
-            }
             try {
                 client.delete(uid);
             } catch (IOException | InterruptedException e) {
@@ -122,17 +129,6 @@ public class CalDavSyncService {
         }
 
         CalDavSyncState.write(config.stateDirPath(), month, newState);
-    }
-
-    private static LocalDate dateFromUid(String uid) {
-        if (!uid.startsWith("duty-") || uid.length() < 13) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(uid.substring(5, 13), YMD8);
-        } catch (RuntimeException e) {
-            return null;
-        }
     }
 
     /** Лише для локального виявлення змін (нема потреби у сумісності зі старим md5sum-станом). */

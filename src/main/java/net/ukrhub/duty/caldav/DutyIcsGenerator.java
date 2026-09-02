@@ -13,11 +13,21 @@ import java.util.List;
 
 /**
  * Порт {@code duty2ics.pl}: перетворює графік місяця на список ICS-подій —
- * по одній на кожну активну позначку (D/W/O/I/S) кожного інженера, від
- * сьогодні й далі (минуле навмисно не публікуємо — застарілий
- * {@code duty-caldav-sync} ним і так ніколи не керує). UID детермінований
- * (дата + номер інженера), тож повторна генерація на той самий день дає
- * той самий UID — основа ідемпотентності {@link CalDavSyncService}.
+ * по одній на кожну активну позначку (D/W/O/I/S) кожного інженера, за
+ * весь місяць (без фільтра "від сьогодні й далі", на відміну від
+ * оригіналу). UID детермінований (дата + номер інженера), тож повторна
+ * генерація на той самий день дає той самий UID — основа ідемпотентності
+ * {@link CalDavSyncService}: те, що не змінилось, дає той самий хеш
+ * вмісту й нікуди не відправляється, а не публікується завжди, лише щоб
+ * потім бути відфільтрованим.
+ *
+ * <p>Чому без фільтра "від сьогодні": позначки іноді проставляють
+ * заднім числом (напр. лікарняний оформили постфактум) — і такий
+ * відредагований минулий день має так само дійти до CalDAV, як і
+ * майбутній. {@link CalDavSyncService} сам обмежує, які МІСЯЦІ синхронізує
+ * (попередній/поточний/наступний) — цього досить, щоб не смикати
+ * сервер даремно старою історією, і не потрібен додатковий фільтр за
+ * ДНЯМИ всередині вже вибраних місяців.
  *
  * <p>Формат UID ({@code duty-YYYYMMDD-NUM@duty.ukrhub.net}) і вміст подій
  * (час чергування 8:00–20:00, робочого дня 9:00–17:00/17:30 з коротшою
@@ -45,13 +55,10 @@ public final class DutyIcsGenerator {
     private DutyIcsGenerator() {
     }
 
-    public static List<IcsEvent> generate(DutySchedule schedule, LocalDate today) {
+    public static List<IcsEvent> generate(DutySchedule schedule) {
         List<IcsEvent> events = new ArrayList<>();
         for (DutyDay day : schedule.days()) {
             LocalDate date = schedule.month().atDay(day.day());
-            if (date.isBefore(today)) {
-                continue;
-            }
             for (Engineer engineer : schedule.engineers()) {
                 DutyMark mark = day.markFor(engineer.number());
                 if (mark == DutyMark.OFF) {

@@ -57,7 +57,7 @@ class CalDavSyncServiceTest {
         CalDavSyncService service = serviceFor(repository, tempDir, "");
 
         assertThat(service.configured()).isFalse();
-        service.syncCurrentAndNext(); // не мало б навіть спробувати з'єднання
+        service.syncRecentMonths(); // не мало б навіть спробувати з'єднання
     }
 
     /**
@@ -144,38 +144,77 @@ class CalDavSyncServiceTest {
         }
     }
 
+    /**
+     * Реальний випадок: позначку (напр. лікарняний) проставляють заднім
+     * числом — попередній місяць синхронізується повністю (не лише
+     * "від сьогодні й далі"), тож така правка так само дійде до CalDAV.
+     */
     @Test
-    void pastDatedUidIsNeverDeletedEvenWhenNoLongerGenerated(@TempDir Path tempDir) throws IOException {
+    void retroactiveEditInPreviousMonthIsPublished(@TempDir Path tempDir) throws IOException {
         try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
             DutyScheduleRepository repository = repositoryIn(tempDir);
-            YearMonth month = YearMonth.of(2040, 9);
-            seed(repository, month, DutyMark.DUTY);
+            YearMonth previous = YearMonth.now().minusMonths(1);
+            seed(repository, previous, 10, DutyMark.OFF);
             CalDavSyncService service = serviceFor(repository, tempDir, server.baseUrl());
 
-            // Імітуємо стан, що лишився від дня, який уже минув: UID з датою
-            // в далекому минулому, якого зараз generate() ніколи б не видав.
-            CalDavSyncState.write(tempDir.resolve("caldav-state"), month,
-                    Map.of("duty-20000101-9@duty.ukrhub.net", "stale-hash"));
+            service.syncMonth(previous);
+            assertThat(server.putUids).as("вихідний день ще не має події").isEmpty();
 
-            service.syncMonth(month);
+            // Лікарняний оформили постфактум.
+            seed(repository, previous, 10, DutyMark.SICK);
+            service.syncMonth(previous);
 
-            assertThat(server.deleteUids).isEmpty();
+            assertThat(server.putUids).hasSize(1);
+            assertThat(server.storedBodies.values()).anyMatch(body -> body.contains("SUMMARY:Лікарняний"));
+        }
+    }
+
+    /** Так само навпаки: помилково проставлений заднім числом лікарняний можна прибрати — подія видаляється. */
+    @Test
+    void clearingRetroactiveMarkInPreviousMonthDeletesEvent(@TempDir Path tempDir) throws IOException {
+        try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
+            DutyScheduleRepository repository = repositoryIn(tempDir);
+            YearMonth previous = YearMonth.now().minusMonths(1);
+            seed(repository, previous, 12, DutyMark.SICK);
+            CalDavSyncService service = serviceFor(repository, tempDir, server.baseUrl());
+            service.syncMonth(previous);
+            assertThat(server.putUids).hasSize(1);
+
+            seed(repository, previous, 12, DutyMark.OFF);
+            service.syncMonth(previous);
+
+            assertThat(server.deleteUids).hasSize(1);
+        }
+    }
+
+    /** Місяці, старіші за попередній, поза межами syncRecentMonths() — їх узагалі не читає й не чіпає. */
+    @Test
+    void monthsOlderThanPreviousAreNeverTouched(@TempDir Path tempDir) throws IOException {
+        try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
+            DutyScheduleRepository repository = repositoryIn(tempDir);
+            YearMonth tooOld = YearMonth.now().minusMonths(3);
+            seed(repository, tooOld, DutyMark.DUTY);
+            CalDavSyncService service = serviceFor(repository, tempDir, server.baseUrl());
+
+            service.syncRecentMonths();
+
+            assertThat(server.putUids).isEmpty();
         }
     }
 
     @Test
-    void syncCurrentAndNextCoversBothMonths(@TempDir Path tempDir) throws IOException {
+    void syncRecentMonthsCoversPreviousCurrentAndNext(@TempDir Path tempDir) throws IOException {
         try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
             DutyScheduleRepository repository = repositoryIn(tempDir);
             YearMonth current = YearMonth.now();
-            // День 1 поточного місяця міг уже минути — сіємо на "сьогодні".
-            seed(repository, current, java.time.LocalDate.now().getDayOfMonth(), DutyMark.DUTY);
+            seed(repository, current.minusMonths(1), 1, DutyMark.SICK);
+            seed(repository, current, 1, DutyMark.DUTY);
             seed(repository, current.plusMonths(1), 1, DutyMark.WORK);
             CalDavSyncService service = serviceFor(repository, tempDir, server.baseUrl());
 
-            service.syncCurrentAndNext();
+            service.syncRecentMonths();
 
-            assertThat(server.putUids).hasSize(2);
+            assertThat(server.putUids).hasSize(3);
         }
     }
 }

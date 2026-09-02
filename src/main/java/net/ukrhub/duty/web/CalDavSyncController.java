@@ -21,7 +21,7 @@ public class CalDavSyncController {
 
     @PostMapping("/admin/caldav/sync-now")
     public String syncNow(RedirectAttributes redirectAttributes) {
-        syncService.syncCurrentAndNext();
+        syncService.syncRecentMonths();
         redirectAttributes.addFlashAttribute("caldavSyncDone", true);
         return "redirect:/admin/users";
     }
