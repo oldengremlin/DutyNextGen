@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: duty-nextgen
+  threads:
+    virtual:
+      enabled: true
+
+duty:
+  # Каталог з місячними файлами графіка (той самий текстовий формат
+  # [Names]/[Dates]/[LastDay0]/[LastDay1], що й у застарілому проєкті,
+  # але в UTF-8 замість KOI8-U) та внутрішнім git-журналом змін.
+  data-dir: ${DUTY_DATA_DIR:./data/duty}
+  caldav:
+    base-url: ${DUTY_CALDAV_BASE_URL:}
+    user: ${DUTY_CALDAV_USER:}
+    password: ${DUTY_CALDAV_PASSWORD:}
