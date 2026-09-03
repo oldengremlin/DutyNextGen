@@ -1,0 +1,380 @@
+package net.ukrhub.duty.exchange;
+
+import net.ukrhub.duty.domain.DutyDay;
+import net.ukrhub.duty.domain.DutyExchangeProposal;
+import net.ukrhub.duty.domain.DutyExchangeStatus;
+import net.ukrhub.duty.domain.DutyExchangeStep;
+import net.ukrhub.duty.domain.DutyMark;
+import net.ukrhub.duty.domain.DutySchedule;
+import net.ukrhub.duty.domain.Engineer;
+import net.ukrhub.duty.git.GitCommitService;
+import net.ukrhub.duty.schedule.DutyScheduleFormat;
+import net.ukrhub.duty.schedule.DutyScheduleRepository;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Бізнес-логіка обміну чергуваннями: список дат, доступних для обміну,
+ * створення/прийняття/відхилення пропозиції, застосування схваленої
+ * пропозиції до графіка, автоматичне анулювання, якщо графік з тих пір
+ * змінився.
+ *
+ * <p>Механіка обміну — {@link #applyToSchedule}: на кожній із двох дат
+ * кроку ({@code DutyExchangeStep}) позначки ініціатора й колеги просто
+ * міняються місцями цілком (те, що "хрестом" дістається іншій людині —
+ * найчастіше {@code OFF}, рідше {@code WORK} — саме тому обмін дає
+ * "кілька вихідних поспіль без втрати робочих годин": сумарна кількість
+ * D/W не змінюється, лише перерозподіляється по датах).
+ */
+@Service
+public class DutyExchangeService {
+
+    private static final String SYSTEM_USERNAME = "duty-nextgen";
+
+    private final DutyExchangeRepository exchangeRepository;
+    private final DutyScheduleRepository scheduleRepository;
+    private final GitCommitService gitCommitService;
+
+    public DutyExchangeService(DutyExchangeRepository exchangeRepository, DutyScheduleRepository scheduleRepository,
+                                GitCommitService gitCommitService) {
+        this.exchangeRepository = exchangeRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.gitCommitService = gitCommitService;
+    }
+
+    /** Чергові інженери (не "лише робочі дні"), які фігурують хоч в одному з наявних майбутніх місяців. */
+    public List<String> rotationEngineerNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (YearMonth month : scheduleRepository.existingMonthsFrom(YearMonth.now())) {
+            scheduleRepository.find(month).ifPresent(schedule -> schedule.engineers().stream()
+                    .filter(e -> !e.onlyWorkdays())
+                    .forEach(e -> names.add(e.name())));
+        }
+        return List.copyOf(names);
+    }
+
+    /** Дати {@code engineerName} з позначкою D чи W, строго в майбутньому, по всіх наявних місяцях. */
+    public List<DutySwappableDate> datesFor(String engineerName) {
+        Set<LocalDate> locked = lockedDates(engineerName, null);
+        LocalDate today = LocalDate.now();
+        List<DutySwappableDate> result = new ArrayList<>();
+        for (YearMonth month : scheduleRepository.existingMonthsFrom(YearMonth.now())) {
+            DutySchedule schedule = scheduleRepository.find(month).orElseThrow();
+            Optional<Engineer> engineer = rotationEngineer(schedule, engineerName);
+            if (engineer.isEmpty()) {
+                continue;
+            }
+            for (DutyDay day : schedule.days()) {
+                LocalDate date = month.atDay(day.day());
+                if (!date.isAfter(today)) {
+                    continue;
+                }
+                DutyMark mark = day.markFor(engineer.get().number());
+                if (mark == DutyMark.DUTY || mark == DutyMark.WORK) {
+                    result.add(new DutySwappableDate(date, mark, locked.contains(date)));
+                }
+            }
+        }
+        return result;
+    }
+
+    public List<DutyExchangeProposal> proposalsFor(String engineerName) {
+        return exchangeRepository.findAll().stream()
+                .filter(p -> p.initiatorName().equals(engineerName) || p.counterpartName().equals(engineerName))
+                .toList();
+    }
+
+    /** Прийняті колегою, ще не вирішені адміністратором. */
+    public List<DutyExchangeProposal> pendingAdminApproval() {
+        return exchangeRepository.findAll().stream()
+                .filter(p -> p.status() == DutyExchangeStatus.ACCEPTED)
+                .toList();
+    }
+
+    public DutyExchangeProposal propose(String initiatorName, String initiatorUsername,
+                                         String counterpartName, List<DutyExchangeStep> steps) {
+        if (steps.isEmpty()) {
+            throw new DutyExchangeValidationException("Пропозиція обміну без жодного кроку");
+        }
+        validateProposal(initiatorName, counterpartName, steps, null);
+
+        int id = exchangeRepository.nextId();
+        DutyExchangeProposal proposal = new DutyExchangeProposal(id, initiatorName, initiatorUsername, counterpartName,
+                steps, DutyExchangeStatus.PENDING, LocalDateTime.now());
+        exchangeRepository.save(proposal, "Пропозиція обміну: " + initiatorName + " ↔ " + counterpartName,
+                initiatorUsername, initiatorUsername + "@duty.local");
+        return proposal;
+    }
+
+    public DutyExchangeProposal accept(int id, String actingUsername, String actingEngineerName) {
+        DutyExchangeProposal proposal = requireProposal(id);
+        requireStatus(proposal, DutyExchangeStatus.PENDING);
+        requireParty(proposal.counterpartName(), actingEngineerName);
+
+        proposal = checkpoint(proposal);
+        if (proposal.status() != DutyExchangeStatus.PENDING) {
+            return proposal;
+        }
+        DutyExchangeProposal accepted = proposal.withStatus(DutyExchangeStatus.ACCEPTED);
+        exchangeRepository.save(accepted, "Прийнято колегою: " + proposal.counterpartName(),
+                actingUsername, actingUsername + "@duty.local");
+        return accepted;
+    }
+
+    public DutyExchangeProposal decline(int id, String actingUsername, String actingEngineerName) {
+        DutyExchangeProposal proposal = requireProposal(id);
+        requireStatus(proposal, DutyExchangeStatus.PENDING);
+        requireParty(proposal.counterpartName(), actingEngineerName);
+
+        DutyExchangeProposal declined = proposal.withStatus(DutyExchangeStatus.DECLINED);
+        exchangeRepository.save(declined, "Відхилено колегою: " + proposal.counterpartName(),
+                actingUsername, actingUsername + "@duty.local");
+        return declined;
+    }
+
+    public DutyExchangeProposal approve(int id, String adminUsername) {
+        DutyExchangeProposal proposal = requireProposal(id);
+        requireStatus(proposal, DutyExchangeStatus.ACCEPTED);
+
+        proposal = checkpoint(proposal);
+        if (proposal.status() != DutyExchangeStatus.ACCEPTED) {
+            return proposal;
+        }
+        applyToSchedule(proposal);
+        DutyExchangeProposal approved = proposal.withStatus(DutyExchangeStatus.APPROVED);
+        exchangeRepository.save(approved, "Затверджено адміністратором (" + adminUsername + "): "
+                        + proposal.initiatorName() + " ↔ " + proposal.counterpartName(),
+                adminUsername, adminUsername + "@duty.local");
+        return approved;
+    }
+
+    public DutyExchangeProposal reject(int id, String adminUsername) {
+        DutyExchangeProposal proposal = requireProposal(id);
+        requireStatus(proposal, DutyExchangeStatus.ACCEPTED);
+
+        DutyExchangeProposal rejected = proposal.withStatus(DutyExchangeStatus.REJECTED);
+        exchangeRepository.save(rejected, "Відхилено адміністратором (" + adminUsername + "): "
+                        + proposal.initiatorName() + " ↔ " + proposal.counterpartName(),
+                adminUsername, adminUsername + "@duty.local");
+        return rejected;
+    }
+
+    /** Прибирає завершену пропозицію зі списку — після того, як сторона побачила банер із результатом. */
+    public void acknowledge(int id, String actingUsername, String actingEngineerName) {
+        DutyExchangeProposal proposal = requireProposal(id);
+        boolean isParty = proposal.initiatorName().equals(actingEngineerName)
+                || proposal.counterpartName().equals(actingEngineerName);
+        if (!isParty) {
+            throw new DutyExchangeValidationException("Ця дія не для вас");
+        }
+        if (proposal.status().active()) {
+            throw new DutyExchangeValidationException("Пропозицію #" + id + " ще не вирішено");
+        }
+        exchangeRepository.delete(id, "Переглянуто (" + actingEngineerName + "): пропозиція #" + id,
+                actingUsername, actingUsername + "@duty.local");
+    }
+
+    /** Гачок для {@code ScheduleGenerationController.delete()} — анулює все, що спиралось на щойно зниклі місяці. */
+    public void revalidateAll() {
+        for (DutyExchangeProposal proposal : exchangeRepository.findAll()) {
+            if (proposal.status().active()) {
+                checkpoint(proposal);
+            }
+        }
+    }
+
+    private DutyExchangeProposal checkpoint(DutyExchangeProposal proposal) {
+        if (isStillValid(proposal)) {
+            return proposal;
+        }
+        DutyExchangeProposal cancelled = proposal.withStatus(DutyExchangeStatus.STALE_CANCELLED);
+        exchangeRepository.save(cancelled,
+                "Анульовано автоматично: графік змінився після створення пропозиції #" + proposal.id(),
+                SYSTEM_USERNAME, SYSTEM_USERNAME + "@duty.local");
+        return cancelled;
+    }
+
+    private boolean isStillValid(DutyExchangeProposal proposal) {
+        for (YearMonth month : proposal.referencedMonths()) {
+            if (!scheduleRepository.exists(month)) {
+                return false;
+            }
+        }
+        try {
+            validateProposal(proposal.initiatorName(), proposal.counterpartName(), proposal.steps(), proposal.id());
+            return true;
+        } catch (DutyExchangeValidationException e) {
+            return false;
+        }
+    }
+
+    private void validateProposal(String initiatorName, String counterpartName, List<DutyExchangeStep> steps,
+                                   Integer excludeProposalId) {
+        if (initiatorName.equals(counterpartName)) {
+            throw new DutyExchangeValidationException("Не можна пропонувати обмін самому собі");
+        }
+        Set<LocalDate> initiatorLocked = lockedDates(initiatorName, excludeProposalId);
+        Set<LocalDate> counterpartLocked = lockedDates(counterpartName, excludeProposalId);
+        for (DutyExchangeStep step : steps) {
+            validateStep(initiatorName, counterpartName, step, initiatorLocked, counterpartLocked);
+        }
+    }
+
+    private void validateStep(String initiatorName, String counterpartName, DutyExchangeStep step,
+                               Set<LocalDate> initiatorLocked, Set<LocalDate> counterpartLocked) {
+        LocalDate today = LocalDate.now();
+        if (!step.initiatorDate().isAfter(today) || !step.counterpartDate().isAfter(today)) {
+            throw new DutyExchangeValidationException("Дати обміну мають бути в майбутньому");
+        }
+        if (initiatorLocked.contains(step.initiatorDate())) {
+            throw new DutyExchangeValidationException("Дата " + step.initiatorDate() + " вже задіяна в іншій пропозиції");
+        }
+        if (counterpartLocked.contains(step.counterpartDate())) {
+            throw new DutyExchangeValidationException("Дата " + step.counterpartDate() + " вже задіяна в іншій пропозиції");
+        }
+        checkCell(initiatorName, step.initiatorDate(), step.type(), counterpartName);
+        checkCell(counterpartName, step.counterpartDate(), step.type(), initiatorName);
+    }
+
+    /** На {@code date}: у {@code ownerName} має стояти саме {@code expectedType}, а "хрестова" клітинка {@code otherName} — безпечна для передачі (W/OFF, не O/I/S). */
+    private void checkCell(String ownerName, LocalDate date, DutyMark expectedType, String otherName) {
+        YearMonth month = YearMonth.from(date);
+        DutySchedule schedule = scheduleRepository.find(month)
+                .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + month));
+        Engineer owner = requireRotationEngineer(schedule, ownerName);
+        Engineer other = requireRotationEngineer(schedule, otherName);
+        DutyDay day = requireDay(schedule, date.getDayOfMonth());
+
+        DutyMark ownerMark = day.markFor(owner.number());
+        if (ownerMark != expectedType) {
+            throw new DutyExchangeValidationException(ownerName + " " + date + ": очікувалась позначка "
+                    + expectedType.displayLetter() + ", а стоїть " + ownerMark.displayLetter());
+        }
+        DutyMark otherMark = day.markFor(other.number());
+        if (otherMark != DutyMark.WORK && otherMark != DutyMark.OFF) {
+            throw new DutyExchangeValidationException(otherName + " " + date + ": не можна обмінювати — там "
+                    + otherMark.displayName().toLowerCase());
+        }
+    }
+
+    private Set<LocalDate> lockedDates(String engineerName, Integer excludeProposalId) {
+        Set<LocalDate> locked = new HashSet<>();
+        for (DutyExchangeProposal proposal : exchangeRepository.findAll()) {
+            if (!proposal.status().active()) {
+                continue;
+            }
+            if (excludeProposalId != null && proposal.id() == excludeProposalId) {
+                continue;
+            }
+            for (DutyExchangeStep step : proposal.steps()) {
+                if (proposal.initiatorName().equals(engineerName)) {
+                    locked.add(step.initiatorDate());
+                }
+                if (proposal.counterpartName().equals(engineerName)) {
+                    locked.add(step.counterpartDate());
+                }
+            }
+        }
+        return locked;
+    }
+
+    private void applyToSchedule(DutyExchangeProposal proposal) {
+        Map<YearMonth, DutySchedule> working = new LinkedHashMap<>();
+        for (DutyExchangeStep step : proposal.steps()) {
+            swapOnDate(working, step.initiatorDate(), proposal.initiatorName(), proposal.counterpartName());
+            swapOnDate(working, step.counterpartDate(), proposal.initiatorName(), proposal.counterpartName());
+        }
+
+        List<Path> touchedFiles = new ArrayList<>();
+        for (var entry : working.entrySet()) {
+            Path file = scheduleRepository.fileFor(entry.getKey());
+            try {
+                Files.writeString(file, DutyScheduleFormat.serialize(entry.getValue()), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new UncheckedIOException("Не вдалося записати " + file, e);
+            }
+            touchedFiles.add(file);
+        }
+        String message = "Обмін чергуваннями: " + proposal.initiatorName() + " ↔ " + proposal.counterpartName()
+                + " (пропозиція #" + proposal.id() + ")";
+        gitCommitService.commit(scheduleRepository.dataDir(), touchedFiles, message,
+                proposal.initiatorUsername(), proposal.initiatorUsername() + "@duty.local");
+    }
+
+    private void swapOnDate(Map<YearMonth, DutySchedule> working, LocalDate date, String initiatorName, String counterpartName) {
+        YearMonth month = YearMonth.from(date);
+        DutySchedule schedule = working.computeIfAbsent(month, m -> scheduleRepository.find(m)
+                .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + m)));
+        int initiatorNumber = requireRotationEngineer(schedule, initiatorName).number();
+        int counterpartNumber = requireRotationEngineer(schedule, counterpartName).number();
+        working.put(month, withSwappedMarks(schedule, date.getDayOfMonth(), initiatorNumber, counterpartNumber));
+    }
+
+    private DutySchedule withSwappedMarks(DutySchedule schedule, int dayOfMonth, int engineerA, int engineerB) {
+        List<DutyDay> newDays = schedule.days().stream()
+                .map(d -> d.day() != dayOfMonth ? d : swapMarksOnDay(d, engineerA, engineerB))
+                .toList();
+        return new DutySchedule(schedule.month(), schedule.engineers(), newDays, schedule.lastDays(), schedule.tid());
+    }
+
+    private DutyDay swapMarksOnDay(DutyDay day, int engineerA, int engineerB) {
+        Map<Integer, DutyMark> marks = new LinkedHashMap<>(day.marks());
+        DutyMark markA = day.markFor(engineerA);
+        DutyMark markB = day.markFor(engineerB);
+        marks.put(engineerA, markB);
+        marks.put(engineerB, markA);
+        return new DutyDay(day.day(), day.dow(), day.holiday(), marks);
+    }
+
+    private Optional<Engineer> rotationEngineer(DutySchedule schedule, String name) {
+        return schedule.engineers().stream()
+                .filter(e -> e.name().equals(name) && !e.onlyWorkdays())
+                .findFirst();
+    }
+
+    private Engineer requireRotationEngineer(DutySchedule schedule, String name) {
+        return rotationEngineer(schedule, name)
+                .orElseThrow(() -> new DutyExchangeValidationException(
+                        name + " не бере участі в ротації чергувань у " + schedule.month()));
+    }
+
+    private DutyDay requireDay(DutySchedule schedule, int dayOfMonth) {
+        return schedule.days().stream()
+                .filter(d -> d.day() == dayOfMonth)
+                .findFirst()
+                .orElseThrow(() -> new DutyExchangeValidationException("Немає дня " + dayOfMonth + " у " + schedule.month()));
+    }
+
+    private DutyExchangeProposal requireProposal(int id) {
+        return exchangeRepository.find(id)
+                .orElseThrow(() -> new DutyExchangeValidationException("Немає пропозиції #" + id));
+    }
+
+    private void requireStatus(DutyExchangeProposal proposal, DutyExchangeStatus expected) {
+        if (proposal.status() != expected) {
+            throw new DutyExchangeValidationException("Пропозиція #" + proposal.id() + " зараз не в стані " + expected);
+        }
+    }
+
+    private void requireParty(String expectedName, String actingEngineerName) {
+        if (!expectedName.equals(actingEngineerName)) {
+            throw new DutyExchangeValidationException("Ця дія не для вас");
+        }
+    }
+}
