@@ -11,10 +11,25 @@ package net.ukrhub.duty.domain;
  * до неї дійшла черга.
  */
 public enum DutyExchangeStatus {
-    PENDING, ACCEPTED, DECLINED, APPROVED, REJECTED, STALE_CANCELLED;
+    PENDING("Очікує колегу"),
+    ACCEPTED("Очікує адміністратора"),
+    DECLINED("Відхилено колегою"),
+    APPROVED("Затверджено"),
+    REJECTED("Відхилено адміністратором"),
+    STALE_CANCELLED("Анульовано автоматично (графік змінився)");
+
+    private final String displayName;
+
+    DutyExchangeStatus(String displayName) {
+        this.displayName = displayName;
+    }
 
     /** Ще може змінити стан — бере участь у перевірці зайнятості дат і в анулюванні. */
     public boolean active() {
         return this == PENDING || this == ACCEPTED;
+    }
+
+    public String displayName() {
+        return displayName;
     }
 }

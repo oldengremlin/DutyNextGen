@@ -4,6 +4,7 @@ import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.domain.Engineer;
 import net.ukrhub.duty.domain.RotationTemplate;
+import net.ukrhub.duty.exchange.DutyExchangeService;
 import net.ukrhub.duty.schedule.DutyScheduleGenerator;
 import net.ukrhub.duty.schedule.DutyScheduleRepository;
 import net.ukrhub.duty.schedule.ScheduleGenerationException;
@@ -59,10 +60,13 @@ public class ScheduleGenerationController {
 
     private final DutyScheduleRepository repository;
     private final RotationTemplateRepository templateRepository;
+    private final DutyExchangeService exchangeService;
 
-    public ScheduleGenerationController(DutyScheduleRepository repository, RotationTemplateRepository templateRepository) {
+    public ScheduleGenerationController(DutyScheduleRepository repository, RotationTemplateRepository templateRepository,
+                                         DutyExchangeService exchangeService) {
         this.repository = repository;
         this.templateRepository = templateRepository;
+        this.exchangeService = exchangeService;
     }
 
     @PostMapping("/schedule/{ym}/generate-next")
@@ -190,6 +194,10 @@ public class ScheduleGenerationController {
         String username = principal != null ? principal.getName() : "невідомий";
         repository.delete(toDelete, "Видалено графік " + monthsList + " (" + username + ")",
                 username, username + "@duty.local");
+        // Пропозиції обміну чергуваннями, що посилались на щойно видалені
+        // місяці, більше не можна застосувати "наосліп" — анулюємо їх тут
+        // же, а не чекаємо наступного accept/approve.
+        exchangeService.revalidateAll();
 
         return "redirect:/";
     }
