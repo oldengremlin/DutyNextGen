@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * продовжує ротацію з місяця {@code ym}) і видалення майбутніх місяців —
  * обидва лише ADMIN ({@code SecurityConfig}).
  *
- * <p>Дерево рішень для «Згенерувати» — {@code nextgen/docs/rotation-templates.md}:
+ * <p>Дерево рішень для «Згенерувати» — {@code docs/rotation-templates.md}:
  * визначаємо K (кількість ротаційних адміністраторів місяця {@code ym}),
  * шукаємо серед {@link RotationTemplateRepository} шаблони під це K.
  * Нуль — помилка. Один — без діалогу вибору ШАБЛОНУ (він і так

@@ -30,7 +30,7 @@ import java.util.Map;
  * оригінальний алгоритм для двох чергових, і продовжувати покладатись на
  * номер адміністратора як на стабільний ідентифікатор — найпростіше
  * рішення, що не потребує окремого сховища для явної відповідності
- * (див. {@code nextgen/docs/rotation-templates.md}).
+ * (див. {@code docs/rotation-templates.md}).
  *
  * <p><b>Продовження фази.</b> {@link DutySchedule#lastDays()} — K останніх
  * днів ФАКТИЧНОГО стану ротації (не лічильник алгоритму: чергові можуть
@@ -93,7 +93,7 @@ public final class DutyScheduleGenerator {
      * (0-based: 0 — день 1 нового місяця збігається з першим днем періоду
      * шаблону) — без пошуку фази. Використовується, коли адміністратор
      * явно обирає, з якого дня шаблону почати (перехід на інший шаблон,
-     * зміна кількості чергових): {@code nextgen/docs/rotation-templates.md}.
+     * зміна кількості чергових): {@code docs/rotation-templates.md}.
      */
     public static DutySchedule generateFromOffset(DutySchedule from, RotationTemplate template, int startOffset) {
         List<Engineer> engineers = sortedEngineers(from);

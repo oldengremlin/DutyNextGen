@@ -5,7 +5,7 @@
 #
 # Для кожної ревізії кожного файлу графіка (YYYYMM та vacation) з
 # ../safe/duty/cvs/cvsroot/duty/ дістає вміст через `co -p`, перекодовує
-# KOI8-U -> UTF-8, записує в nextgen/data/duty/ і робить окремий git-коміт
+# KOI8-U -> UTF-8, записує в data/duty/ і робить окремий git-коміт
 # з ОРИГІНАЛЬНИМИ датою та автором ревізії — щоб git log відображав
 # справжню хронологію редагувань 2008-2026 років, а не єдиний "імпорт".
 #
@@ -147,7 +147,7 @@ for my $e (@entries) {
     $ENV{GIT_COMMITTER_EMAIL} = $email;
     $ENV{GIT_COMMITTER_DATE}  = $gitdate;
 
-    my $relpath = "nextgen/data/duty/$e->{base}";
+    my $relpath = "data/duty/$e->{base}";
     system('git', '-C', $REPO_ROOT, 'add', '--', $relpath) == 0
         or die "git add $relpath: $?";
     system('git', '-C', $REPO_ROOT, 'commit', '--quiet', '-m', $message, '--', $relpath) == 0
