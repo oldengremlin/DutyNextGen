@@ -657,6 +657,34 @@ td.hover-col, th.hover-col {
     align-items: center;
 }
 
+/* --- Майстер генерації: вибір зсуву в шаблоні --- */
+
+.offset-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.offset-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.offset-preview-cells {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.offset-preview-divider {
+    width: 2px;
+    align-self: stretch;
+    background: var(--accent);
+    margin: 0 0.2rem;
+    border-radius: 1px;
+}
+
 @media print {
     @page {
         size: landscape;

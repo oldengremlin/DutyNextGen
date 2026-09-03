@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'З якого дня — ' + ${monthLabel}">З якого дня почати</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${ym})}">&larr; скасувати</a>
+        <h1 class="month-title" th:text="'З якого дня шаблону «' + ${template.name} + '» почати ' + ${monthLabel} + '?'">
+            З якого дня почати</h1>
+    </div>
+
+    <p class="footer-note" style="margin-bottom: 1.25rem;">
+        Зліва — реальний хвіст поточного місяця, справа — як виглядатиме продовження цим варіантом.
+        Обери той, що зорово продовжує графік найприродніше.
+    </p>
+
+    <div class="template-list">
+        <div class="template-card" th:each="option : ${options}">
+            <div class="template-card-head">
+                <h2 class="template-card-title" th:text="'Варіант ' + (${option.offset} + 1)">Варіант 1</h2>
+                <form method="post" th:action="@{/schedule/{ym}/generate-next/offset(ym=${ym})}">
+                    <input type="hidden" name="templateId" th:value="${template.id}"/>
+                    <input type="hidden" name="offset" th:value="${option.offset}"/>
+                    <button type="submit" class="save-btn">Обрати цей варіант</button>
+                </form>
+            </div>
+            <div class="offset-preview">
+                <div class="offset-preview-row" th:each="row : ${option.rows}">
+                    <span class="template-slot-label" th:text="${row.engineerName}">Ім'я</span>
+                    <div class="offset-preview-cells">
+                        <span class="mark" th:each="cell : ${row.tail}"
+                              th:classappend="${cell.cssClass}" th:text="${cell.code}">D</span>
+                        <span class="offset-preview-divider"></span>
+                        <span class="mark" th:each="cell : ${row.head}"
+                              th:classappend="${cell.cssClass}" th:text="${cell.code}">D</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

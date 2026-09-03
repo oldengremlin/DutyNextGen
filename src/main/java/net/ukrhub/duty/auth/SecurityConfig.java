@@ -45,6 +45,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.springRole())
+                        .requestMatchers("/schedule/*/generate-next/**").hasRole(Role.ADMIN.springRole())
                         .requestMatchers(HttpMethod.POST,
                                 "/schedule/*/edit/add-engineer", "/schedule/*/edit/remove-engineer",
                                 "/schedule/*/generate-next", "/schedule/*/delete")

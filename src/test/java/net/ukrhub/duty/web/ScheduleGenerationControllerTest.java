@@ -4,7 +4,9 @@ import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.domain.Engineer;
+import net.ukrhub.duty.domain.RotationTemplate;
 import net.ukrhub.duty.schedule.DutyScheduleRepository;
+import net.ukrhub.duty.template.RotationTemplateRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,16 +20,27 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Усі тести цього класу ділять один статичний {@code @TempDir} (і тому
+ * один {@code RotationTemplateRepository}) — щоб шаблон, створений в
+ * одному тесті, не зробив "кількість чергових" неоднозначною в іншому
+ * (0/1/2+ шаблонів під K — {@code ScheduleGenerationController}), кожен
+ * тест, що створює шаблони, використовує свою окрему кількість чергових
+ * (K), не використану більше ніде в цьому файлі.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class ScheduleGenerationControllerTest {
@@ -41,17 +54,29 @@ class ScheduleGenerationControllerTest {
     @Autowired
     private DutyScheduleRepository repository;
 
+    @Autowired
+    private RotationTemplateRepository templateRepository;
+
     @DynamicPropertySource
     static void duty(DynamicPropertyRegistry registry) {
         registry.add("duty.data-dir", () -> tempDir.resolve("data").toString());
         registry.add("duty.config-dir", () -> tempDir.resolve("config").toString());
+        registry.add("duty.templates-dir", () -> tempDir.resolve("templates").toString());
+    }
+
+    private RotationTemplate template(int id, String name, List<String> rows) {
+        RotationTemplate template = new RotationTemplate(id, name, rows);
+        templateRepository.save(template, "сід-шаблон " + id, "Тест", "test@example.com");
+        return template;
     }
 
     /**
      * Позначки останніх двох днів, гарантовано розпізнавані генератором
-     * (та сама якірна фаза, що й у {@code DutyScheduleGeneratorTest}).
+     * (та сама якірна фаза, що й у {@code DutyScheduleGeneratorTest}) — на
+     * два чергових, під класичний 2-слотовий шаблон. K=2 навмисно
+     * ексклюзивна для цього тесту в цьому файлі.
      */
-    private void seedGeneratable(YearMonth month) {
+    private void seedGeneratableTwoRotating(YearMonth month) {
         List<Engineer> engineers = List.of(
                 new Engineer(1, "Лише будні", true),
                 new Engineer(2, "Черговий 1", false),
@@ -61,6 +86,30 @@ class ScheduleGenerationControllerTest {
                 Map.of(1, DutyMark.WORK, 2, DutyMark.DUTY, 3, DutyMark.OFF)));
         Map<Integer, DutyMark> lastDay0 = Map.of(1, DutyMark.OFF, 2, DutyMark.OFF, 3, DutyMark.DUTY);
         Map<Integer, DutyMark> lastDay1 = Map.of(1, DutyMark.OFF, 2, DutyMark.DUTY, 3, DutyMark.OFF);
+        DutySchedule schedule = new DutySchedule(month, engineers, days, lastDay0, lastDay1);
+        repository.save(schedule, "сід " + month, "Тест", "test@example.com");
+    }
+
+    /**
+     * Простий сід на довільну кількість ротаційних адміністраторів —
+     * без турботи про фазу (годиться лише там, де вона не перевіряється:
+     * майстер вибору шаблону до пошуку фази не доходить, а генерація з
+     * явного зсуву його не шукає).
+     */
+    private void seedSimpleRotating(YearMonth month, int rotatingCount) {
+        List<Engineer> engineers = new ArrayList<>();
+        for (int i = 1; i <= rotatingCount; i++) {
+            engineers.add(new Engineer(i, "Черговий " + i, false));
+        }
+        Map<Integer, DutyMark> marks = new LinkedHashMap<>();
+        Map<Integer, DutyMark> lastDay0 = new LinkedHashMap<>();
+        Map<Integer, DutyMark> lastDay1 = new LinkedHashMap<>();
+        for (Engineer e : engineers) {
+            marks.put(e.number(), DutyMark.OFF);
+            lastDay0.put(e.number(), DutyMark.OFF);
+            lastDay1.put(e.number(), DutyMark.OFF);
+        }
+        List<DutyDay> days = List.of(new DutyDay(1, DayOfWeek.MONDAY, false, marks));
         DutySchedule schedule = new DutySchedule(month, engineers, days, lastDay0, lastDay1);
         repository.save(schedule, "сід " + month, "Тест", "test@example.com");
     }
@@ -79,19 +128,21 @@ class ScheduleGenerationControllerTest {
     @Test
     @WithMockUser(username = "noc", roles = "ADMIN")
     void adminCanGenerateNextMonth() throws Exception {
-        seedGeneratable(YearMonth.of(2034, 1));
+        template(101, "Класика-101", List.of("DD--", "--DD")); // K=2, єдиний у файлі
+        seedGeneratableTwoRotating(YearMonth.of(2034, 1));
 
         mockMvc.perform(post("/schedule/203401/generate-next").with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/schedule/203402"));
 
-        assertThat(repository.find(YearMonth.of(2034, 2))).isPresent();
+        DutySchedule generated = repository.find(YearMonth.of(2034, 2)).orElseThrow();
+        assertThat(generated.tid()).isEqualTo(101);
     }
 
     @Test
     @WithMockUser(username = "noc", roles = "EDITOR")
     void editorCannotGenerateNextMonth() throws Exception {
-        seedGeneratable(YearMonth.of(2034, 3));
+        seedGeneratableTwoRotating(YearMonth.of(2034, 3));
 
         mockMvc.perform(post("/schedule/203403/generate-next").with(csrf()))
                 .andExpect(status().isForbidden());
@@ -100,7 +151,7 @@ class ScheduleGenerationControllerTest {
     @Test
     @WithMockUser(username = "noc", roles = "ADMIN")
     void generateNextRefusesWhenTargetAlreadyExists() throws Exception {
-        seedGeneratable(YearMonth.of(2034, 4));
+        seedGeneratableTwoRotating(YearMonth.of(2034, 4));
         seedSimple(YearMonth.of(2034, 5));
 
         mockMvc.perform(post("/schedule/203404/generate-next").with(csrf()))
@@ -111,9 +162,65 @@ class ScheduleGenerationControllerTest {
 
     @Test
     @WithMockUser(username = "noc", roles = "ADMIN")
+    void generateNextErrorsWhenNoTemplateMatchesRotatingCount() throws Exception {
+        // K=6 — жодного шаблону під таку кількість у цьому файлі не створюється.
+        seedSimpleRotating(YearMonth.of(2034, 6), 6);
+
+        mockMvc.perform(post("/schedule/203406/generate-next").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203406"))
+                .andExpect(flash().attribute("generationError", org.hamcrest.Matchers.containsString("Немає жодного шаблону")));
+
+        assertThat(repository.find(YearMonth.of(2034, 7))).isEmpty();
+    }
+
+    /**
+     * Реальний випадок: під поточну кількість чергових підходить два
+     * шаблони — кнопка «Згенерувати» не генерує мовчки, а веде на крок
+     * вибору шаблону замість фази. K=3 — ексклюзивна для цього тесту.
+     */
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void generateNextRedirectsToTemplateChoiceWhenMultipleTemplatesMatch() throws Exception {
+        template(201, "Перший 3-слотовий", List.of("D--", "-D-", "--D"));
+        template(202, "Другий 3-слотовий", List.of("D-W", "WD-", "-WD"));
+        seedSimpleRotating(YearMonth.of(2034, 8), 3);
+
+        mockMvc.perform(post("/schedule/203408/generate-next").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203408/generate-next/templates"));
+
+        assertThat(repository.find(YearMonth.of(2034, 9))).isEmpty();
+
+        mockMvc.perform(get("/schedule/203408/generate-next/templates"))
+                .andExpect(status().isOk());
+    }
+
+    /** Крок 2 (вибір зсуву) і крок 3 (сама генерація без пошуку фази) — повний майстер. K=4 — ексклюзивна для цього тесту. */
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void offsetWizardGeneratesWithoutPhaseSearch() throws Exception {
+        RotationTemplate template = template(301, "Новий 4-слотовий", List.of("D---", "-D--", "--D-", "---D"));
+        seedSimpleRotating(YearMonth.of(2034, 10), 4);
+
+        mockMvc.perform(get("/schedule/203410/generate-next/offset").param("templateId", "301"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/schedule/203410/generate-next/offset").with(csrf())
+                        .param("templateId", "301").param("offset", "0"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203411"));
+
+        DutySchedule generated = repository.find(YearMonth.of(2034, 11)).orElseThrow();
+        assertThat(generated.tid()).isEqualTo(template.id());
+    }
+
+    /** K=1 — ексклюзивна для цього тесту, жодного шаблону під неї немає. */
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
     void generateNextReportsValidationFailureWithoutCreatingFile() throws Exception {
         DutySchedule schedule = new DutySchedule(
-                YearMonth.of(2034, 6),
+                YearMonth.of(2035, 6),
                 List.of(new Engineer(1, "Єдиний черговий", false)),
                 List.of(new DutyDay(1, DayOfWeek.MONDAY, Map.of(1, DutyMark.DUTY))),
                 Map.of(1, DutyMark.DUTY),
@@ -121,12 +228,12 @@ class ScheduleGenerationControllerTest {
         );
         repository.save(schedule, "сід", "Тест", "test@example.com");
 
-        mockMvc.perform(post("/schedule/203406/generate-next").with(csrf()))
+        mockMvc.perform(post("/schedule/203506/generate-next").with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/schedule/203406"))
+                .andExpect(redirectedUrl("/schedule/203506"))
                 .andExpect(flash().attributeExists("generationError"));
 
-        assertThat(repository.find(YearMonth.of(2034, 7))).isEmpty();
+        assertThat(repository.find(YearMonth.of(2035, 7))).isEmpty();
     }
 
     @Test
