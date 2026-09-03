@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Який шаблон — ' + ${monthLabel}">Який шаблон застосувати</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${ym})}">&larr; скасувати</a>
+        <h1 class="month-title" th:text="'Який шаблон застосувати для ' + ${monthLabel} + '?'">Який шаблон</h1>
+    </div>
+
+    <p class="footer-note" style="margin-bottom: 1.25rem;">
+        Під поточну кількість чергових підходить декілька шаблонів — обери, який продовжити.
+        Наступний крок — з якого дня періоду почати.
+    </p>
+
+    <div class="template-list">
+        <div class="template-card" th:each="template : ${templates}">
+            <div class="template-card-head">
+                <div class="template-title-group">
+                    <h2 class="template-card-title" th:text="${template.name}">Назва шаблону</h2>
+                    <span class="badge" th:text="${template.slots} + ' чергових'">2 чергових</span>
+                    <span class="badge badge-muted" th:text="'період ' + ${template.period} + ' дн.'">період 4 дн.</span>
+                </div>
+                <form method="get" th:action="@{/schedule/{ym}/generate-next/offset(ym=${ym})}">
+                    <input type="hidden" name="templateId" th:value="${template.id}"/>
+                    <button type="submit" class="save-btn">Обрати</button>
+                </form>
+            </div>
+            <div class="template-grid">
+                <div class="template-row" th:each="slot : ${#numbers.sequence(0, template.slots() - 1)}">
+                    <span class="template-slot-label" th:text="'Слот ' + (${slot} + 1)">Слот 1</span>
+                    <div class="template-cells">
+                        <span class="mark" th:each="day : ${#numbers.sequence(0, template.period() - 1)}"
+                              th:classappend="${template.markAt(slot, day).cssClass()}"
+                              th:text="${template.markAt(slot, day).code()}">D</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

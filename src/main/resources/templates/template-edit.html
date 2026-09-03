@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Редагування шаблону — ' + ${template.name}">Редагування шаблону</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/admin/templates}">&larr; до шаблонів</a>
+        <h1 class="month-title">Редагування шаблону</h1>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
+    </div>
+
+    <!-- Окремі, порожні форми-цілі для кнопок "+ день"/"− день" нижче —
+         кнопка не може бути одразу в двох формах (HTML не дозволяє
+         вкладені <form>), тож зв'язується з ними через атрибут form="". -->
+    <form th:action="@{/admin/templates/{id}/add-day(id=${template.id})}" method="post" id="add-day-form">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+    <form th:action="@{/admin/templates/{id}/remove-day(id=${template.id})}" method="post" id="remove-day-form">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+    <form method="post" th:action="@{/admin/templates/{id}/edit(id=${template.id})}">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+            <input type="text" name="name" th:value="${template.name}" class="name-input"
+                   style="width: auto; min-width: 20rem; display: inline-block;" required="required"/>
+            <span class="badge" th:text="${template.slots} + ' чергових'">2 чергових</span>
+            <span class="badge badge-muted" th:text="'період ' + ${template.period} + ' дн.'">період 4 дн.</span>
+        </div>
+
+        <div class="table-card">
+            <table class="template-edit-table">
+                <thead>
+                <tr>
+                    <th class="name-col">Слот</th>
+                    <th th:each="day : ${days}" th:text="${day}">1</th>
+                    <th class="template-day-controls-col">
+                        <div class="template-day-controls">
+                            <button type="submit" form="add-day-form" class="nav-btn btn-small">+ день</button>
+                            <button type="submit" form="remove-day-form" class="nav-btn btn-small">− день</button>
+                        </div>
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="slot : ${slotsRange}">
+                    <td class="name-col" th:text="'Слот ' + ${slot}">Слот 1</td>
+                    <td th:each="day : ${days}">
+                        <select class="mark-select" th:name="'mark_' + ${slot} + '_' + ${day}">
+                            <option value="D" th:selected="${template.markCodeAt(slot - 1, day - 1) == 'D'}">D</option>
+                            <option value="W" th:selected="${template.markCodeAt(slot - 1, day - 1) == 'W'}">W</option>
+                            <option value="-" th:selected="${template.markCodeAt(slot - 1, day - 1) == '-'}">&minus;</option>
+                        </select>
+                    </td>
+                    <td></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="footer-note">
+            Кількість слотів (K) фіксується один раз при створенні шаблону — тут можна міняти лише довжину періоду.
+        </p>
+
+        <div class="edit-actions">
+            <button type="submit" class="save-btn">Зберегти</button>
+            <a class="nav-btn" th:href="@{/admin/templates}">Скасувати</a>
+        </div>
+    </form>
+
+</div>
+</body>
+</html>
