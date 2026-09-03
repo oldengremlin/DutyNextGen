@@ -18,7 +18,7 @@ class RotationTemplateRepositoryTest {
         Path templatesDir = tempDir.resolve("templates");
         DutyProperties properties = new DutyProperties(
                 tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), null,
-                templatesDir.toString());
+                templatesDir.toString(), tempDir.resolve("exchanges").toString());
         return new RotationTemplateRepository(properties, new GitCommitService());
     }
 
