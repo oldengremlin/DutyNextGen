@@ -20,6 +20,7 @@
     --sick-fg: #8a1f2a;
     --session-bg: #e6def7;
     --session-fg: #4b2e8a;
+    --weekend-marker: #d97706;
 }
 
 * {
@@ -216,6 +217,13 @@ td.hover-col, th.hover-col {
 .mark-session {
     background: var(--session-bg);
     color: var(--session-fg);
+}
+
+/* Субота/неділя в прев'ю майстра вибору зсуву (schedule-generate-offset.html) —
+   ці дні відомі заздалегідь (хвіст поточного місяця й початок наступного),
+   тож підкреслюємо їх окремо від кольору самої позначки. */
+.mark.weekend {
+    box-shadow: inset 0 -3px 0 var(--weekend-marker);
 }
 
 .legend {

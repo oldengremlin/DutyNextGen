@@ -17,6 +17,7 @@
     <p class="footer-note" style="margin-bottom: 1.25rem;">
         Зліва — реальний хвіст поточного місяця, справа — як виглядатиме продовження цим варіантом.
         Обери той, що зорово продовжує графік найприродніше.
+        Клітинки з підкресленням — субота й неділя.
     </p>
 
     <div class="template-list">
@@ -34,10 +35,12 @@
                     <span class="template-slot-label" th:text="${row.engineerName}">Ім'я</span>
                     <div class="offset-preview-cells">
                         <span class="mark" th:each="cell : ${row.tail}"
-                              th:classappend="${cell.cssClass}" th:text="${cell.code}">D</span>
+                              th:classappend="${cell.cssClass} + (${cell.weekend} ? ' weekend' : '')"
+                              th:text="${cell.code}">D</span>
                         <span class="offset-preview-divider"></span>
                         <span class="mark" th:each="cell : ${row.head}"
-                              th:classappend="${cell.cssClass}" th:text="${cell.code}">D</span>
+                              th:classappend="${cell.cssClass} + (${cell.weekend} ? ' weekend' : '')"
+                              th:text="${cell.code}">D</span>
                     </div>
                 </div>
             </div>
