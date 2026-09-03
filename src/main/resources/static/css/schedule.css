@@ -252,10 +252,16 @@ td.hover-col, th.hover-col {
 }
 
 .footer-note {
+    display: block;
     margin-top: 1rem;
     text-align: center;
     color: var(--muted);
     font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.footer-note:hover {
+    text-decoration: underline;
 }
 
 /* --- Редагування --- */

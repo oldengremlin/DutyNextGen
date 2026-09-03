@@ -126,7 +126,31 @@ public class GitCommitService {
         List<String> commitCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "commit", "--quiet", "-m", message, "--"));
         commitCommand.addAll(relativePaths);
-        commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
+        try {
+            commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
+        } catch (RuntimeException e) {
+            // git rm вище вже видалив файли з робочого каталогу — на
+            // відміну від git add (commit()), це не відкладена дія до
+            // коміту. Якщо сам коміт не пройшов, файли лишаться фізично
+            // видаленими, а git-історія — так і не оновленою: тиха
+            // втрата даних, замаскована повідомленням про невдачу.
+            // Відновлюємо робочий каталог і індекс до стану останнього
+            // коміту, щоб дію справді можна було безпечно повторити.
+            restoreFromHead(dataDir, relativePaths);
+            throw e;
+        }
+    }
+
+    private void restoreFromHead(Path dataDir, List<String> relativePaths) {
+        List<String> restoreCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
+                "checkout", "--quiet", "HEAD", "--"));
+        restoreCommand.addAll(relativePaths);
+        try {
+            run(dataDir, restoreCommand);
+        } catch (RuntimeException restoreFailure) {
+            log.error("Не вдалося відновити {} у {} після невдалого коміту видалення — "
+                    + "потрібне ручне втручання (git checkout HEAD -- ...)", relativePaths, dataDir, restoreFailure);
+        }
     }
 
     /**
