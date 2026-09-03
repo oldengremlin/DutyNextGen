@@ -196,6 +196,46 @@ class ScheduleGenerationControllerTest {
                 .andExpect(status().isOk());
     }
 
+    /**
+     * Реальний production-баг: щойно додали чергового (K зросло), під нову
+     * кількість підходить рівно один шаблон — але збережений хвіст
+     * ({@code [ LastDayN ] }) ще старого розміру (записаний до зміни
+     * ростеру), тож продовжити фазу неможливо. Раніше це показувало голу
+     * помилку "кількість збережених останніх днів не збігається" замість
+     * дружнього майстра; тепер, коли шаблон однозначний, а фазу продовжити
+     * не вдалось, — одразу веде на крок вибору зсуву для цього ж шаблону.
+     * K=5 — ексклюзивна для цього тесту.
+     */
+    @Test
+    @WithMockUser(username = "noc", roles = "ADMIN")
+    void generateNextFallsBackToOffsetWizardWhenSingleTemplateCannotContinuePhase() throws Exception {
+        template(401, "П'ятислотовий", List.of("D----", "-D---", "--D--", "---D-", "----D"));
+
+        List<Engineer> engineers = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            engineers.add(new Engineer(i, "Черговий " + i, false));
+        }
+        Map<Integer, DutyMark> marks = new LinkedHashMap<>();
+        for (Engineer e : engineers) {
+            marks.put(e.number(), DutyMark.OFF);
+        }
+        List<DutyDay> days = List.of(new DutyDay(1, DayOfWeek.MONDAY, false, marks));
+        // Хвіст лишився двослотовим — типова ситуація одразу після того, як
+        // до ростеру додали чергових (K змінилось, а старий хвіст — ні).
+        DutySchedule schedule = new DutySchedule(YearMonth.of(2034, 12), engineers, days,
+                Map.of(1, DutyMark.OFF, 2, DutyMark.OFF), Map.of(1, DutyMark.OFF, 2, DutyMark.OFF));
+        repository.save(schedule, "сід K-змінилось", "Тест", "test@example.com");
+
+        mockMvc.perform(post("/schedule/203412/generate-next").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/schedule/203412/generate-next/offset?templateId=401"));
+
+        assertThat(repository.find(YearMonth.of(2035, 1))).isEmpty();
+
+        mockMvc.perform(get("/schedule/203412/generate-next/offset").param("templateId", "401"))
+                .andExpect(status().isOk());
+    }
+
     /** Крок 2 (вибір зсуву) і крок 3 (сама генерація без пошуку фази) — повний майстер. K=4 — ексклюзивна для цього тесту. */
     @Test
     @WithMockUser(username = "noc", roles = "ADMIN")

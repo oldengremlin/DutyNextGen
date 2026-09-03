@@ -32,13 +32,17 @@ import java.util.stream.Collectors;
  * <p>Дерево рішень для «Згенерувати» — {@code nextgen/docs/rotation-templates.md}:
  * визначаємо K (кількість ротаційних адміністраторів місяця {@code ym}),
  * шукаємо серед {@link RotationTemplateRepository} шаблони під це K.
- * Нуль — помилка. Один — без жодного діалогу, як і раніше, просто
- * продовжуємо фазу. Два і більше — завжди питаємо (незалежно від того,
- * який шаблон використано минулого разу): спершу який шаблон
- * (`/templates`, з наочним прев'ю), потім з якого дня періоду почати
- * (`/offset`, з візуалізацією реального хвоста поточного місяця + кожного
- * можливого продовження) — і лише тоді генеруємо, без пошуку фази, з
- * точного зсуву.
+ * Нуль — помилка. Один — без діалогу вибору ШАБЛОНУ (він і так
+ * однозначний), просто продовжуємо фазу — але якщо фазу продовжити не
+ * вдалось (типовий випадок: K щойно змінилося, і збережений хвіст
+ * {@code [ LastDayN ] } ще старого розміру), однозначний шаблон не
+ * рятує від необхідності явно обрати зсув — ведемо одразу на крок
+ * вибору дня періоду для нього (а не показуємо голу помилку). Два і
+ * більше — завжди питаємо (незалежно від того, який шаблон використано
+ * минулого разу): спершу який шаблон (`/templates`, з наочним прев'ю),
+ * потім з якого дня періоду почати (`/offset`, з візуалізацією реального
+ * хвоста поточного місяця + кожного можливого продовження) — і лише
+ * тоді генеруємо, без пошуку фази, з точного зсуву.
  *
  * <p>Генерація прив'язана до конкретного переглянутого місяця, а не до
  * "сьогодні": можна перейти на вже згенерований жовтень і згенерувати з
@@ -82,7 +86,17 @@ public class ScheduleGenerationController {
             return "redirect:/schedule/" + ym + "/generate-next/templates";
         }
 
-        return generateAndSave(from, current, candidates.get(0), null, principal, redirectAttributes);
+        RotationTemplate template = candidates.get(0);
+        DutySchedule generated;
+        try {
+            generated = DutyScheduleGenerator.generateNext(current, template);
+        } catch (ScheduleGenerationException e) {
+            // Шаблон однозначний, але фазу продовжити не вдалось (типово — K
+            // щойно змінилося, збережений хвіст ще старого розміру): не гола
+            // помилка, а одразу крок вибору зсуву для цього ж шаблону.
+            return "redirect:/schedule/" + ym + "/generate-next/offset?templateId=" + template.id();
+        }
+        return generateAndSave(from, generated, template, principal);
     }
 
     /** Крок 1 майстра (лише коли шаблонів під K декілька) — який шаблон застосувати, з наочним прев'ю. */
@@ -137,26 +151,22 @@ public class ScheduleGenerationController {
             return "redirect:/schedule/" + ym;
         }
         RotationTemplate template = requireTemplate(templateId);
-
-        return generateAndSave(from, current, template, offset, principal, redirectAttributes);
-    }
-
-    private String generateAndSave(YearMonth from, DutySchedule current, RotationTemplate template, Integer offset,
-                                    Principal principal, RedirectAttributes redirectAttributes) {
-        YearMonth target = from.plusMonths(1);
-        String username = principal != null ? principal.getName() : "невідомий";
         try {
-            DutySchedule generated = offset != null
-                    ? DutyScheduleGenerator.generateFromOffset(current, template, offset)
-                    : DutyScheduleGenerator.generateNext(current, template);
-            repository.save(generated,
-                    "Згенеровано графік " + MonthPath.format(target) + " на основі " + MonthPath.format(from)
-                            + " за шаблоном «" + template.name() + "» (" + username + ")",
-                    username, username + "@duty.local");
+            DutySchedule generated = DutyScheduleGenerator.generateFromOffset(current, template, offset);
+            return generateAndSave(from, generated, template, principal);
         } catch (ScheduleGenerationException e) {
             redirectAttributes.addFlashAttribute("generationError", e.getMessage());
             return "redirect:/schedule/" + MonthPath.format(from);
         }
+    }
+
+    private String generateAndSave(YearMonth from, DutySchedule generated, RotationTemplate template, Principal principal) {
+        YearMonth target = from.plusMonths(1);
+        String username = principal != null ? principal.getName() : "невідомий";
+        repository.save(generated,
+                "Згенеровано графік " + MonthPath.format(target) + " на основі " + MonthPath.format(from)
+                        + " за шаблоном «" + template.name() + "» (" + username + ")",
+                username, username + "@duty.local");
         return "redirect:/schedule/" + MonthPath.format(target);
     }
 
