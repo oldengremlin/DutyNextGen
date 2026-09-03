@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,11 +109,21 @@ public class DutyExchangeController {
                 .findFirst();
         if (type.isEmpty()) {
             redirectAttributes.addFlashAttribute("exchangeError", myDate + " — не ваш день чергування чи роботи");
-            return "redirect:/exchange?counterpart=" + counterpart;
+            return redirectToCounterpart(counterpart);
         }
 
         draftStore.add(authentication.getName(), new DraftStep(counterpart, new DutyExchangeStep(type.get(), myDate, theirDate)));
-        return "redirect:/exchange?counterpart=" + counterpart;
+        return redirectToCounterpart(counterpart);
+    }
+
+    /**
+     * П.І.Б. колеги в query string — обов'язково URL-кодоване: кирилиця й
+     * пробіл у сирому вигляді в {@code Location} — невалідний HTTP-заголовок,
+     * Tomcat його просто відкидає (302 без Location — порожній екран у
+     * браузері, дію при цьому вже виконано).
+     */
+    private String redirectToCounterpart(String counterpart) {
+        return "redirect:/exchange?counterpart=" + URLEncoder.encode(counterpart, StandardCharsets.UTF_8);
     }
 
     @PostMapping("/draft/remove")

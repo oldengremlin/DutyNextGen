@@ -32,23 +32,33 @@ public record DutyProperties(String dataDir, String configDir, Caldav caldav, St
         }
 
         public Path stateDirPath() {
-            return Path.of(stateDir);
+            return Path.of(stateDir).toAbsolutePath().normalize();
         }
     }
 
+    /**
+     * Завжди абсолютний, навіть якщо в конфігу лишили відносний шлях
+     * (типово для дев-дефолтів на кшталт {@code ./data/duty}) — щоб
+     * {@code GitCommitService} передавав {@code ProcessBuilder}-у
+     * однозначний каталог: відносний {@code File} у
+     * {@code ProcessBuilder.directory(...)} інакше може розійтися з тим,
+     * куди NIO ({@code Files.createDirectories}) реально записав дані
+     * (production-баг: пропущена змінна середовища для нового каталогу
+     * впала на відносний дефолт і git не міг у нього "перейти").
+     */
     public Path dataDirPath() {
-        return Path.of(dataDir);
+        return Path.of(dataDir).toAbsolutePath().normalize();
     }
 
     public Path configDirPath() {
-        return Path.of(configDir);
+        return Path.of(configDir).toAbsolutePath().normalize();
     }
 
     public Path templatesDirPath() {
-        return Path.of(templatesDir);
+        return Path.of(templatesDir).toAbsolutePath().normalize();
     }
 
     public Path exchangesDirPath() {
-        return Path.of(exchangesDir);
+        return Path.of(exchangesDir).toAbsolutePath().normalize();
     }
 }
