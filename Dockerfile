@@ -53,4 +53,12 @@ WORKDIR /app
 COPY --from=build /build/target/duty-nextgen.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# launchMechanism=FORK: у деяких контейнерних середовищах типовий
+# posix_spawn зрідка падає на старті дочірнього git-процесу
+# (GitCommitService, ProcessBuilder) з "Exec failed, error: 2" навіть
+# коли команда й робочий каталог існують. FORK — старіший, повільніший
+# на fork(), але надійніший механізм; git комітиться нечасто й не в
+# гарячому шляху, тому ціна прийнятна. Разом з ретраєм у
+# GitCommitService — подвійний захист, бо стовідсотково відтворити
+# причину поза продакшн-контейнером не вдалось.
+ENTRYPOINT ["java", "-Djdk.lang.Process.launchMechanism=FORK", "-jar", "/app/app.jar"]
