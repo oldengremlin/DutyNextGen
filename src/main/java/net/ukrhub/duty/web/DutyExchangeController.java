@@ -10,6 +10,8 @@ import net.ukrhub.duty.exchange.DutyExchangeDraftStore.DraftStep;
 import net.ukrhub.duty.exchange.DutyExchangeService;
 import net.ukrhub.duty.exchange.DutyExchangeValidationException;
 import net.ukrhub.duty.exchange.DutySwappableDate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -47,6 +50,20 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping("/exchange")
 public class DutyExchangeController {
+
+    private static final Logger log = LoggerFactory.getLogger(DutyExchangeController.class);
+
+    /**
+     * {@code GitCommitService} зрідка (спостережено в production, не
+     * відтворено локально) не може застосувати git-коміт через
+     * транзиентний збій спавну зовнішнього процесу — уже з ретраями
+     * всередині {@code GitCommitService}. Тут — останній рубіж: замість
+     * Whitelabel Error Page користувач бачить те саме дружнє
+     * повідомлення про помилку, що й для звичайних валідаційних
+     * відмов.
+     */
+    private static final String GIT_FAILURE_MESSAGE =
+            "Не вдалося зберегти зміни через тимчасовий збій. Спробуйте, будь ласка, ще раз за кілька секунд.";
 
     private final DutyExchangeService exchangeService;
     private final DutyExchangeDraftStore draftStore;
@@ -158,6 +175,9 @@ public class DutyExchangeController {
             draftStore.clear(username);
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
+        } catch (UncheckedIOException | IllegalStateException e) {
+            log.warn("Не вдалося застосувати git-коміт для пропозиції обміну", e);
+            redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
     }
@@ -190,6 +210,9 @@ public class DutyExchangeController {
             exchangeService.approve(id, authentication.getName());
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
+        } catch (UncheckedIOException | IllegalStateException e) {
+            log.warn("Не вдалося застосувати git-коміт для затвердження обміну #{}", id, e);
+            redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
     }
@@ -200,6 +223,9 @@ public class DutyExchangeController {
             exchangeService.reject(id, authentication.getName());
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
+        } catch (UncheckedIOException | IllegalStateException e) {
+            log.warn("Не вдалося застосувати git-коміт для відхилення обміну #{}", id, e);
+            redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
     }
@@ -218,6 +244,9 @@ public class DutyExchangeController {
             action.apply(id, authentication.getName(), myEngineer.get());
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
+        } catch (UncheckedIOException | IllegalStateException e) {
+            log.warn("Не вдалося застосувати git-коміт для дії над пропозицією обміну #{}", id, e);
+            redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
     }

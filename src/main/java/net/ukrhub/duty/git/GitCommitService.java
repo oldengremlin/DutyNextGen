@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +33,27 @@ public class GitCommitService {
     private static final Logger log = LoggerFactory.getLogger(GitCommitService.class);
     private static final DateTimeFormatter GIT_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z");
 
+    /**
+     * Абсолютний шлях замість голого {@code "git"}: спостережено в
+     * production, що спавн процесу з додатковими env-змінними (автор/
+     * дата коміту) зрідка падає з "Exec failed, error: 2 (No such file
+     * or directory)" саме там, де без них той самий каталог і той самий
+     * бінарник щойно відпрацював штатно (наприклад, {@code git rm} перед
+     * {@code git commit} у {@link #delete}) — це збігається з тим, як
+     * exec шукає команду через {@code PATH} з переданого envp. Абсолютний
+     * шлях прибирає саму потребу в цьому пошуку.
+     */
+    private static final String GIT_EXECUTABLE = resolveGitExecutable();
+
+    private static String resolveGitExecutable() {
+        for (String candidate : List.of("/usr/bin/git", "/usr/local/bin/git", "/bin/git")) {
+            if (Files.isExecutable(Path.of(candidate))) {
+                return candidate;
+            }
+        }
+        return "git";
+    }
+
     public GitCommitService() {
         // ProcessBuilder передає аргументи й змінні середовища дочірньому
         // процесу через sun.jnu.encoding (native-кодування JVM), а не
@@ -55,10 +77,10 @@ public class GitCommitService {
         ensureRepo(dataDir);
 
         String relativePath = dataDir.relativize(fileToCommit).toString();
-        run(dataDir, List.of("git", "-C", dataDir.toString(), "add", "--", relativePath));
+        run(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "add", "--", relativePath));
 
         String gitDate = OffsetDateTime.now().format(GIT_DATE);
-        commitStagedChanges(dataDir, List.of("git", "-C", dataDir.toString(), "commit", "--quiet", "-m", message,
+        commitStagedChanges(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "commit", "--quiet", "-m", message,
                 "--", relativePath), authorName, authorEmail, gitDate);
     }
 
@@ -76,12 +98,12 @@ public class GitCommitService {
                 .map(f -> dataDir.relativize(f).toString())
                 .toList();
 
-        List<String> addCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(), "add", "--"));
+        List<String> addCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "add", "--"));
         addCommand.addAll(relativePaths);
         run(dataDir, addCommand);
 
         String gitDate = OffsetDateTime.now().format(GIT_DATE);
-        List<String> commitCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+        List<String> commitCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "commit", "--quiet", "-m", message, "--"));
         commitCommand.addAll(relativePaths);
         commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
@@ -95,13 +117,13 @@ public class GitCommitService {
                 .map(f -> dataDir.relativize(f).toString())
                 .toList();
 
-        List<String> rmCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+        List<String> rmCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "rm", "--quiet", "--ignore-unmatch", "--"));
         rmCommand.addAll(relativePaths);
         run(dataDir, rmCommand);
 
         String gitDate = OffsetDateTime.now().format(GIT_DATE);
-        List<String> commitCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+        List<String> commitCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "commit", "--quiet", "-m", message, "--"));
         commitCommand.addAll(relativePaths);
         commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
@@ -114,7 +136,7 @@ public class GitCommitService {
      */
     public List<CommitInfo> history(Path dataDir, Path file) {
         String relativePath = dataDir.relativize(file).toString();
-        ProcessResult logResult = execute(dataDir, List.of("git", "-C", dataDir.toString(),
+        ProcessResult logResult = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "log", "--follow", "--date=iso-strict", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s",
                 "--", relativePath), null, null, null);
         if (logResult.exitCode() != 0) {
@@ -137,7 +159,7 @@ public class GitCommitService {
     }
 
     private String diffFor(Path dataDir, String hash, String relativePath) {
-        ProcessResult result = execute(dataDir, List.of("git", "-C", dataDir.toString(),
+        ProcessResult result = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "show", "--pretty=format:", hash, "--", relativePath), null, null, null);
         return result.exitCode() == 0 ? result.output().strip() : "";
     }
@@ -149,14 +171,14 @@ public class GitCommitService {
             throw new UncheckedIOException("Не вдалося створити каталог даних " + dataDir, e);
         }
 
-        ProcessResult check = execute(dataDir, List.of("git", "-C", dataDir.toString(),
+        ProcessResult check = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "rev-parse", "--is-inside-work-tree"), null, null, null);
         if (check.exitCode() == 0) {
             return;
         }
 
         log.info("У {} немає git-репозиторію — ініціалізую новий (типово для окремого зовнішнього тому)", dataDir);
-        run(dataDir, List.of("git", "-C", dataDir.toString(), "init", "--quiet"));
+        run(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "init", "--quiet"));
     }
 
     private void run(Path cwd, List<String> command) {
@@ -221,30 +243,35 @@ public class GitCommitService {
         }
     }
 
+    private static final int START_ATTEMPTS = 5;
+
     /**
      * У production (Docker) зрідка спостерігався збій самого
      * {@code pb.start()} — {@code IOException: Exec failed, error: 2
-     * (No such file or directory)} — хоча і git, і робочий каталог
-     * точно існують (той самий каталог за мить до цього успішно
-     * використовувався в цьому ж запиті). Локально не відтворюється;
-     * схоже на транзиентний збій спавну процесу на рівні JVM/ОС, а не
-     * на помилку самої команди. Кілька коротких повторів дешевші й
-     * надійніші, ніж намагатись довести причину без доступу до
-     * контейнера.
+     * (No such file or directory)} — саме на командах з додатковими
+     * env-змінними (автор/дата коміту), тоді як той самий каталог і той
+     * самий бінарник мить до того відпрацював штатно без них (наприклад,
+     * {@code git rm} перед {@code git commit} у {@link #delete}) —
+     * звідси абсолютний {@link #GIT_EXECUTABLE} вище. Локально не
+     * відтворюється, тому про всяк випадок — і кілька повторів з
+     * наростаючою паузою, разом сумарно понад секунду: у production
+     * наступний, повністю незалежний запит за кілька секунд після збою
+     * відпрацьовував штатно, тобто яка б умова це не спричиняла, вона не
+     * тримається довго.
      */
     private Process startWithRetry(ProcessBuilder pb, List<String> command) throws IOException {
         IOException last = null;
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        for (int attempt = 1; attempt <= START_ATTEMPTS; attempt++) {
             try {
                 return pb.start();
             } catch (IOException e) {
                 last = e;
                 log.warn("Спроба {} запустити {} не вдалась: {}", attempt, command, e.getMessage());
-                if (attempt == 3) {
+                if (attempt == START_ATTEMPTS) {
                     break;
                 }
                 try {
-                    Thread.sleep(50L * attempt);
+                    Thread.sleep(100L * (1L << (attempt - 1)));
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
