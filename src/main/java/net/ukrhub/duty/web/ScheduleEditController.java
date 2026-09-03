@@ -100,14 +100,14 @@ public class ScheduleEditController {
         if (!errors.isEmpty()) {
             model.addAttribute("month", month);
             model.addAttribute("monthLabel", UkrainianCalendar.monthName(month.getMonth()) + " " + month.getYear());
-            model.addAttribute("schedule", new DutySchedule(month, engineers, days, existing.lastDay0(), existing.lastDay1()));
+            model.addAttribute("schedule", new DutySchedule(month, engineers, days, existing.lastDays(), existing.tid()));
             model.addAttribute("marks", DutyMark.values());
             model.addAttribute("isAdmin", isAdmin);
             model.addAttribute("errors", errors);
             return "schedule-edit";
         }
 
-        DutySchedule updated = new DutySchedule(month, engineers, days, existing.lastDay0(), existing.lastDay1());
+        DutySchedule updated = new DutySchedule(month, engineers, days, existing.lastDays(), existing.tid());
 
         String username = principal != null ? principal.getName() : "невідомий";
         repository.save(updated, "Редагування графіка " + ym + " через веб (" + username + ")",
@@ -171,12 +171,15 @@ public class ScheduleEditController {
                 })
                 .toList();
 
-        Map<Integer, DutyMark> lastDay0 = new LinkedHashMap<>(existing.lastDay0());
-        lastDay0.put(nextNumber, DutyMark.OFF);
-        Map<Integer, DutyMark> lastDay1 = new LinkedHashMap<>(existing.lastDay1());
-        lastDay1.put(nextNumber, DutyMark.OFF);
+        List<Map<Integer, DutyMark>> lastDays = existing.lastDays().stream()
+                .map(m -> {
+                    Map<Integer, DutyMark> copy = new LinkedHashMap<>(m);
+                    copy.put(nextNumber, DutyMark.OFF);
+                    return copy;
+                })
+                .toList();
 
-        DutySchedule updated = new DutySchedule(month, engineers, days, lastDay0, lastDay1);
+        DutySchedule updated = new DutySchedule(month, engineers, days, lastDays, existing.tid());
 
         String username = principal != null ? principal.getName() : "невідомий";
         repository.save(updated, "Додано адміністратора №" + nextNumber + " (" + engineerName + ") до графіка " + ym
@@ -209,12 +212,15 @@ public class ScheduleEditController {
                 })
                 .toList();
 
-        Map<Integer, DutyMark> lastDay0 = new LinkedHashMap<>(existing.lastDay0());
-        lastDay0.remove(number);
-        Map<Integer, DutyMark> lastDay1 = new LinkedHashMap<>(existing.lastDay1());
-        lastDay1.remove(number);
+        List<Map<Integer, DutyMark>> lastDays = existing.lastDays().stream()
+                .map(m -> {
+                    Map<Integer, DutyMark> copy = new LinkedHashMap<>(m);
+                    copy.remove(number);
+                    return copy;
+                })
+                .toList();
 
-        DutySchedule updated = new DutySchedule(month, engineers, days, lastDay0, lastDay1);
+        DutySchedule updated = new DutySchedule(month, engineers, days, lastDays, existing.tid());
 
         String username = principal != null ? principal.getName() : "невідомий";
         repository.save(updated, "Видалено адміністратора №" + number + " (" + removed.name() + ") з графіка " + ym

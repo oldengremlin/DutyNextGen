@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Читання й запис текстового формату графіка, успадкованого від
@@ -22,6 +23,15 @@ import java.util.Map;
  * <p>Формат навмисно не змінюється (людинозрозумілий, добре діффиться в
  * git) — змінюється лише кодування (UTF-8 замість KOI8-U) і те, що новий
  * запис більше не містить застарілого CVS-заголовка {@code $Id$}.
+ *
+ * <p>{@code [ LastDayN ] } — узагальнено на довільну кількість секцій
+ * (0, 1, 2...), а не лише 0/1: кількість = кількість ротаційних слотів
+ * застосованого шаблону ({@code RotationTemplate.slots()}). Для звичного
+ * випадку двох чергових (K=2) це буквально ті самі дві секції, що й
+ * завжди — формат наявних файлів графіка не змінюється. {@code [ Tid ] }
+ * — новий, опційний розділ (id застосованого {@code RotationTemplate});
+ * відсутній у файлах, згенерованих до появи шаблонів ротації, — це
+ * штатно, не помилка.
  */
 public final class DutyScheduleFormat {
 
@@ -35,8 +45,8 @@ public final class DutyScheduleFormat {
     public static DutySchedule parse(YearMonth month, String content) {
         List<Engineer> engineers = new ArrayList<>();
         List<DutyDay> days = new ArrayList<>();
-        Map<Integer, DutyMark> lastDay0 = new LinkedHashMap<>();
-        Map<Integer, DutyMark> lastDay1 = new LinkedHashMap<>();
+        Map<Integer, Map<Integer, DutyMark>> lastDaysByIndex = new TreeMap<>();
+        Integer tid = null;
 
         String section = "";
         for (String rawLine : content.split("\n", -1)) {
@@ -50,18 +60,44 @@ public final class DutyScheduleFormat {
                 continue;
             }
 
+            int lastDayIndex = lastDayIndexOf(section);
+            if (lastDayIndex >= 0) {
+                parseTailLine(line, engineers, lastDaysByIndex.computeIfAbsent(lastDayIndex, i -> new LinkedHashMap<>()));
+                continue;
+            }
+
             switch (section) {
                 case "names" -> parseNameLine(line, engineers);
                 case "dates" -> parseDayLine(line, engineers, days);
-                case "lastday0" -> parseTailLine(line, engineers, lastDay0);
-                case "lastday1" -> parseTailLine(line, engineers, lastDay1);
+                case "tid" -> tid = parseTid(line);
                 default -> {
                     // невідома/порожня секція — ігноруємо
                 }
             }
         }
 
-        return new DutySchedule(month, engineers, days, lastDay0, lastDay1);
+        List<Map<Integer, DutyMark>> lastDays = new ArrayList<>(lastDaysByIndex.values());
+        return new DutySchedule(month, engineers, days, lastDays, tid);
+    }
+
+    /** {@code "lastday0"/"lastday1"/"lastday2"...} -> 0/1/2..., або -1, якщо секція не про це. */
+    private static int lastDayIndexOf(String section) {
+        if (!section.startsWith("lastday")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(section.substring("lastday".length()));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private static Integer parseTid(String line) {
+        try {
+            return Integer.parseInt(line.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static void parseNameLine(String line, List<Engineer> engineers) {
@@ -146,8 +182,13 @@ public final class DutyScheduleFormat {
             sb.append('\n');
         }
 
-        appendTailSection(sb, "LastDay0", schedule.engineers(), schedule.lastDay0());
-        appendTailSection(sb, "LastDay1", schedule.engineers(), schedule.lastDay1());
+        for (int i = 0; i < schedule.lastDays().size(); i++) {
+            appendTailSection(sb, "LastDay" + i, schedule.engineers(), schedule.lastDays().get(i));
+        }
+
+        if (schedule.tid() != null) {
+            sb.append("[ Tid ]\n").append(schedule.tid()).append('\n');
+        }
 
         return sb.toString();
     }

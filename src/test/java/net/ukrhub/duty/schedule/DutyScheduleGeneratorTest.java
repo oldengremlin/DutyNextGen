@@ -4,6 +4,7 @@ import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.domain.Engineer;
+import net.ukrhub.duty.domain.RotationTemplate;
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;
@@ -16,13 +17,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DutyScheduleGeneratorTest {
 
-    /**
-     * Позиція i=44 (найперша, яку перевіряє пошук фази — {@code TEMPLATE[43]}
-     * і {@code TEMPLATE[44]=TEMPLATE[0]} завдяки подвоєнню шаблону) —
-     * детермінований, не залежний від внутрішньої структури базового
-     * шаблону якір для тестів: {@code TEMPLATE[43]="-:D"}, {@code
-     * TEMPLATE[0]="D:-"}.
-     */
+    /** Той самий мінімальний період, що й колишній вбудований шаблон (D:-/-:D по 2 дні), лише явним {@link RotationTemplate}. */
+    private static final RotationTemplate CLASSIC = new RotationTemplate(1, "Класика", List.of("DD--", "--DD"));
+
     private static DutySchedule validFromSchedule() {
         List<Engineer> engineers = List.of(
                 new Engineer(1, "Тільки будні 1", true),
@@ -47,9 +44,9 @@ class DutyScheduleGeneratorTest {
         DutySchedule from = new DutySchedule(YearMonth.of(2027, 1), engineers, List.of(),
                 Map.of(1, DutyMark.DUTY, 2, DutyMark.OFF), Map.of(1, DutyMark.OFF, 2, DutyMark.OFF));
 
-        assertThatThrownBy(() -> DutyScheduleGenerator.generateNext(from))
+        assertThatThrownBy(() -> DutyScheduleGenerator.generateNext(from, CLASSIC))
                 .isInstanceOf(ScheduleGenerationException.class)
-                .hasMessageContaining("рівно двох чергових");
+                .hasMessageContaining("розрахований на");
     }
 
     @Test
@@ -63,14 +60,14 @@ class DutyScheduleGeneratorTest {
         DutySchedule from = new DutySchedule(YearMonth.of(2027, 1), engineers, List.of(),
                 Map.of(1, DutyMark.VACATION, 2, DutyMark.SICK), Map.of(1, DutyMark.VACATION, 2, DutyMark.SICK));
 
-        assertThatThrownBy(() -> DutyScheduleGenerator.generateNext(from))
+        assertThatThrownBy(() -> DutyScheduleGenerator.generateNext(from, CLASSIC))
                 .isInstanceOf(ScheduleGenerationException.class)
-                .hasMessageContaining("фазу ротаційного шаблону");
+                .hasMessageContaining("Не вдалося визначити фазу");
     }
 
     @Test
     void generatesNextMonthAndNeverPutsWorkOnWeekendForOnlyWorkdaysEngineer() {
-        DutySchedule generated = DutyScheduleGenerator.generateNext(validFromSchedule());
+        DutySchedule generated = DutyScheduleGenerator.generateNext(validFromSchedule(), CLASSIC);
 
         assertThat(generated.month()).isEqualTo(YearMonth.of(2027, 2));
         assertThat(generated.engineers()).hasSize(4);
@@ -97,11 +94,44 @@ class DutyScheduleGeneratorTest {
 
     @Test
     void generatedScheduleCanBeChainedIntoFollowingMonth() {
-        DutySchedule first = DutyScheduleGenerator.generateNext(validFromSchedule());
+        DutySchedule first = DutyScheduleGenerator.generateNext(validFromSchedule(), CLASSIC);
 
-        DutySchedule second = DutyScheduleGenerator.generateNext(first);
+        DutySchedule second = DutyScheduleGenerator.generateNext(first, CLASSIC);
 
         assertThat(second.month()).isEqualTo(YearMonth.of(2027, 3));
         assertThat(second.days()).hasSize(YearMonth.of(2027, 3).lengthOfMonth());
+    }
+
+    /**
+     * Обов'язкове правило (вимога користувача): черговий, який чергував (D) у
+     * суботу чи неділю, у понеділок отримує вихідний, навіть якщо шаблон на
+     * цей понеділок каже "W". Період шаблону — 7 днів, зсув обрано так, щоб
+     * 1 січня 2030 (вівторок) відповідало позиції 0 періоду — тоді 5, 6, 7
+     * січня 2030 — субота, неділя, понеділок відповідно. Слот 0 (черговий 1)
+     * чергує в суботу — його "W" у понеділок має бути скасоване; слот 1
+     * (черговий 2) у вихідні не чергує — його "W" у понеділок лишається.
+     */
+    @Test
+    void mondayWorkIsOverriddenToOffAfterWeekendDuty() {
+        RotationTemplate template = new RotationTemplate(2, "Тест-понеділок",
+                List.of("----D-W", "------W"));
+        List<Engineer> engineers = List.of(
+                new Engineer(1, "Черговий 1", false),
+                new Engineer(2, "Черговий 2", false)
+        );
+        DutySchedule from = new DutySchedule(YearMonth.of(2029, 12), engineers, List.of(),
+                Map.of(1, DutyMark.OFF, 2, DutyMark.OFF), Map.of(1, DutyMark.OFF, 2, DutyMark.OFF));
+
+        DutySchedule generated = DutyScheduleGenerator.generateFromOffset(from, template, 0);
+
+        assertThat(generated.month()).isEqualTo(YearMonth.of(2030, 1));
+        var saturday = generated.days().get(4);
+        assertThat(saturday.dow()).isEqualTo(DayOfWeek.SATURDAY);
+        assertThat(saturday.markFor(1)).isEqualTo(DutyMark.DUTY);
+
+        var monday = generated.days().get(6);
+        assertThat(monday.dow()).isEqualTo(DayOfWeek.MONDAY);
+        assertThat(monday.markFor(1)).isEqualTo(DutyMark.OFF);
+        assertThat(monday.markFor(2)).isEqualTo(DutyMark.WORK);
     }
 }
