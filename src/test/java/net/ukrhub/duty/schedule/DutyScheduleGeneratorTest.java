@@ -92,6 +92,30 @@ class DutyScheduleGeneratorTest {
         }
     }
 
+    /**
+     * Регресія: production-баг, знайдений на реальних даних — {@code
+     * [ LastDayN ] } мають бути впорядковані від найстарішого до
+     * найновішого дня (той самий порядок, якого очікує пошук фази й у
+     * якому їх завжди писав застарілий формат: {@code LastDay1} — це
+     * справжній останній день місяця, а не {@code LastDay0}). Генератор
+     * писав їх у зворотному порядку — на симетричному {@code CLASSIC}
+     * (обидва слоти рівноцінні) це не ламало жоден інший тест, тож тут
+     * звіряємо порядок напряму з реальними позначками останніх двох днів.
+     */
+    @Test
+    void lastDaysAreOrderedOldestToNewestMatchingLegacyFileConvention() {
+        DutySchedule generated = DutyScheduleGenerator.generateNext(validFromSchedule(), CLASSIC);
+
+        List<DutyDay> days = generated.days();
+        DutyDay lastDay = days.get(days.size() - 1);
+        DutyDay dayBeforeLast = days.get(days.size() - 2);
+
+        assertThat(generated.lastDay1().get(2)).isEqualTo(lastDay.markFor(2));
+        assertThat(generated.lastDay1().get(3)).isEqualTo(lastDay.markFor(3));
+        assertThat(generated.lastDay0().get(2)).isEqualTo(dayBeforeLast.markFor(2));
+        assertThat(generated.lastDay0().get(3)).isEqualTo(dayBeforeLast.markFor(3));
+    }
+
     @Test
     void generatedScheduleCanBeChainedIntoFollowingMonth() {
         DutySchedule first = DutyScheduleGenerator.generateNext(validFromSchedule(), CLASSIC);

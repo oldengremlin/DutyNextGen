@@ -158,9 +158,14 @@ public final class DutyScheduleGenerator {
             oneDayAgo = marks;
         }
 
+        // Найстаріший день тижня — перший елемент, найновіший (справжній
+        // останній день місяця) — останній: та сама конвенція, що й у
+        // [ LastDay0 ]/[ LastDay1 ] застарілого формату (LastDay1 — це
+        // насправді останній день, LastDay0 — день перед ним), і той
+        // самий порядок, якого очікує пошук фази (findPhase).
         List<Map<Integer, DutyMark>> newTail = new ArrayList<>(template.slots());
         for (int i = template.slots() - 1; i >= 0; i--) {
-            newTail.add(0, rawMarksAt(engineers, rotating, columns[offset + daysInMonth - i]));
+            newTail.add(rawMarksAt(engineers, rotating, columns[offset + daysInMonth - i]));
         }
 
         return new DutySchedule(target, engineers, days, newTail, template.id());
