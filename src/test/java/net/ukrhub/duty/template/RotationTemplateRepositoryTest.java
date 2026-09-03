@@ -39,6 +39,19 @@ class RotationTemplateRepositoryTest {
         assertThat(output.trim()).isEqualTo("Тест Тестович|тестовий коміт");
     }
 
+    /** Реальний випадок: логічніше бачити поруч шаблони під однакову кількість чергових, а не в порядку створення. */
+    @Test
+    void findAllSortsBySlotsThenById(@TempDir Path tempDir) {
+        RotationTemplateRepository repository = repositoryIn(tempDir);
+        repository.save(new RotationTemplate(1, "Чотири (перший)", List.of("D---", "-D--", "--D-", "---D")),
+                "сід", "Тест", "test@example.com");
+        repository.save(new RotationTemplate(2, "Два", List.of("DD--", "--DD")), "сід", "Тест", "test@example.com");
+        repository.save(new RotationTemplate(3, "Чотири (другий)", List.of("D-WW", "WD-W", "WWD-", "-WWD")),
+                "сід", "Тест", "test@example.com");
+
+        assertThat(repository.findAll()).extracting(RotationTemplate::id).containsExactly(2, 1, 3);
+    }
+
     @Test
     void findAllReturnsTemplatesSortedById(@TempDir Path tempDir) {
         RotationTemplateRepository repository = repositoryIn(tempDir);

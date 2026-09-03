@@ -10,6 +10,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +38,12 @@ public class RotationTemplateRepository {
         this.gitCommitService = gitCommitService;
     }
 
+    /**
+     * За кількістю слотів (2, 3, 4...), а не за id — так шаблони під
+     * однакову кількість чергових видно поруч. У межах однієї кількості
+     * слотів — за id (порядком створення): найпростіший передбачуваний
+     * тайбрейк, коли шаблонів під те саме K декілька.
+     */
     public List<RotationTemplate> findAll() {
         if (!Files.isDirectory(templatesDir)) {
             return List.of();
@@ -46,9 +53,9 @@ public class RotationTemplateRepository {
                     .map(p -> p.getFileName().toString())
                     .filter(name -> name.matches(FILE_NAME_PATTERN))
                     .map(Integer::parseInt)
-                    .sorted()
                     .map(this::find)
                     .flatMap(Optional::stream)
+                    .sorted(Comparator.comparingInt(RotationTemplate::slots).thenComparingInt(RotationTemplate::id))
                     .toList();
         } catch (IOException e) {
             throw new UncheckedIOException("Не вдалося прочитати " + templatesDir, e);
