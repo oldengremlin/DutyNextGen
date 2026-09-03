@@ -243,7 +243,7 @@ public class ScheduleGenerationController {
 
     private static PreviewCell cellFor(DutyDay day, Engineer e) {
         var mark = day.markFor(e.number());
-        return new PreviewCell(day.day(), mark.code(), mark.cssClass());
+        return new PreviewCell(day.day(), mark.code(), mark.cssClass(), day.isWeekend());
     }
 
     private static List<DutyDay> lastDays(List<DutyDay> days, int count) {
@@ -260,6 +260,6 @@ public class ScheduleGenerationController {
     public record PreviewRow(String engineerName, List<PreviewCell> tail, List<PreviewCell> head) {
     }
 
-    public record PreviewCell(int day, char code, String cssClass) {
+    public record PreviewCell(int day, char code, String cssClass, boolean weekend) {
     }
 }
