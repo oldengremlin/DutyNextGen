@@ -17,6 +17,11 @@ duty:
   # НЕ пов'язаний з git-історією графіка. У production — окремий
   # зовнішній том, як і data-dir.
   config-dir: ${DUTY_CONFIG_DIR:./config}
+  # Шаблони ротації чергувань (RotationTemplateRepository) — git-версіюються
+  # так само, як і сам графік (той самий внутрішній журнал), тому окремо
+  # від config-dir. Типово підкаталог data-dir (та сама точка монтування
+  # в Docker, окремого тому не треба — як і caldav.state-dir нижче).
+  templates-dir: ${DUTY_TEMPLATES_DIR:./data/templates}
   caldav:
     # Порожній base-url = CalDAV-синхронізація вимкнена (типово) —
     # ні фоновий job, ні кнопка "Синхронізувати" нічого не роблять.

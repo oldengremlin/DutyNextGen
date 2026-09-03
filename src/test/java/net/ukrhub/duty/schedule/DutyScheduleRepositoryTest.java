@@ -24,7 +24,8 @@ class DutyScheduleRepositoryTest {
     @Test
     void savingScheduleWritesFileAndCommitsToOwnGitRepo(@TempDir Path tempDir) throws IOException, InterruptedException {
         Path dataDir = tempDir.resolve("duty-data");
-        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null);
+        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null,
+                tempDir.resolve("templates").toString());
         DutyScheduleRepository repository = new DutyScheduleRepository(properties, new GitCommitService());
 
         List<Engineer> engineers = List.of(new Engineer(1, "Тестовий І.", false));
@@ -53,7 +54,8 @@ class DutyScheduleRepositoryTest {
     @Test
     void existsAndExistingMonthsFromFindOnlyMonthFiles(@TempDir Path tempDir) {
         Path dataDir = tempDir.resolve("duty-data");
-        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null);
+        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null,
+                tempDir.resolve("templates").toString());
         DutyScheduleRepository repository = new DutyScheduleRepository(properties, new GitCommitService());
 
         seed(repository, YearMonth.of(2031, 1));
@@ -69,7 +71,8 @@ class DutyScheduleRepositoryTest {
     @Test
     void deleteRemovesFilesAndCommits(@TempDir Path tempDir) throws IOException, InterruptedException {
         Path dataDir = tempDir.resolve("duty-data");
-        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null);
+        DutyProperties properties = new DutyProperties(dataDir.toString(), tempDir.resolve("config").toString(), null,
+                tempDir.resolve("templates").toString());
         DutyScheduleRepository repository = new DutyScheduleRepository(properties, new GitCommitService());
 
         seed(repository, YearMonth.of(2031, 6));

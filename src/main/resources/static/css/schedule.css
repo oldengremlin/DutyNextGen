@@ -530,6 +530,133 @@ td.hover-col, th.hover-col {
     padding-left: 1.25rem;
 }
 
+/* --- Шаблони ротації --- */
+
+.mark-off {
+    background: var(--border);
+    color: var(--muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.15em 0.65em;
+    border-radius: 1em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-muted {
+    background: var(--bg);
+    color: var(--muted);
+}
+
+.btn-small {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+}
+
+.template-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.template-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    box-shadow: 0 2px 6px rgba(20, 20, 43, 0.05), 0 10px 28px rgba(20, 20, 43, 0.06);
+    padding: 1.25rem 1.5rem;
+}
+
+.template-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.template-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.template-card-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+
+.template-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.template-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.template-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.template-slot-label {
+    width: 4.6rem;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.template-cells {
+    display: flex;
+    gap: 0.3rem;
+}
+
+/* Той самий вигляд, що й у schedule-edit.html (.edit-table select) —
+   клітинка редагування шаблону теж <select>, не клікабельна клітинка:
+   свідомо просто, без окремого JS. Лише D/W/− (без O/I/S — сесії/
+   лікарняні/відпустки не властивість шаблону), "−" не позичає колір
+   відпустки (var(--vacation)), бо тут це "немає події цього дня", а не
+   тип позначки. */
+.template-edit-table select.mark-select {
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.15rem;
+    border-radius: 0.4rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 3.6rem;
+}
+
+.template-edit-table select.mark-select:has(option[value="D"]:checked) { background: var(--duty-bg); color: var(--duty-fg); }
+.template-edit-table select.mark-select:has(option[value="W"]:checked) { background: var(--work-bg); color: var(--work-fg); }
+.template-edit-table select.mark-select:has(option[value="-"]:checked) { background: var(--border); color: var(--muted); }
+
+.template-day-controls-col {
+    border-bottom: none;
+}
+
+.template-day-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    align-items: center;
+}
+
 @media print {
     @page {
         size: landscape;

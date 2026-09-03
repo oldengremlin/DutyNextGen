@@ -11,6 +11,7 @@
     <div class="toolbar">
         <a class="nav-btn" th:href="@{/}">&larr; до графіка</a>
         <h1 class="month-title">Користувачі</h1>
+        <a class="nav-btn" th:href="@{/admin/templates}">Шаблони ротації</a>
         <form method="post" class="noprint" th:action="@{/logout}">
             <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <button type="submit" class="nav-btn">Вийти</button>
