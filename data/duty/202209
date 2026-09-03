@@ -1,0 +1,39 @@
+# $Id: 202209,v 1.12 2022/09/07 05:21:25 olden Exp $
+[ Names ]
+# System Administrators' names:
+1:Леонов А.:+
+2:Чорний О.:
+3:Тiмошенко О.:
+4:Русскiх О.:+
+[ Dates ]
+# day	Adm_1	Adm_2	Adm_3	Adm_4
+1  Th	W	-	D	W
+2  Fr	W	-	D	W
+3  Sa	-	D	-	-
+4  Su	-	D	-	-
+5  Mo	W	D	-	W
+6  Tu	W	-	D	W
+7  We	W	-	D	W
+8  Th	W	D	-	W
+9  Fr	W	D	-	W
+10 Sa	D	-	-	-
+11 Su	-	-	D	-
+12 Mo	-	D	-	W
+13 Tu	W	D	-	W
+14 We	W	-	D	W
+15 Th	W	-	D	W
+16 Fr	W	D	-	W
+17 Sa	-	D	-	-
+18 Su	-	-	D	-
+19 Mo	W	-	D	W
+20 Tu	-	D	-	W
+21 We	-	D	-	W
+22 Th	D	-	с	W
+23 Fr	D	-	-	W
+24 Sa	-	D	е	-
+25 Su	-	D	-	-
+26 Mo	D	-	с	W
+27 Tu	D	-	O	W
+28 We	-	D	i	W
+29 Th	-	D	O	W
+30 Fr	D	-	я	W

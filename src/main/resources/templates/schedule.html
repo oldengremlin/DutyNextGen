@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${monthLabel} + ' — графік чергувань'">Графік чергувань</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${prevYm})}">&larr; попередній</a>
+        <h1 class="month-title" th:text="${monthLabel}">Місяць Рік</h1>
+        <span style="display: flex; gap: 0.5rem;">
+            <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${nextYm})}">наступний &rarr;</a>
+            <form method="post" class="noprint" th:action="@{/logout}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn">Вийти</button>
+            </form>
+        </span>
+    </div>
+
+    <div th:if="${generationError != null}" class="edit-errors">
+        <span th:text="${generationError}"></span>
+    </div>
+
+    <div th:if="${schedule == null}" class="empty-state">
+        Даних за <span th:text="${monthLabel}"></span> ще немає.
+    </div>
+
+    <div th:if="${schedule != null}" class="table-card">
+        <table>
+            <thead>
+            <tr>
+                <th class="name-col">Адміністратор</th>
+                <th th:each="day : ${schedule.days}"
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday ' : '') + (${day.day} == ${todayDay} ? 'today' : '')">
+                    <span class="day-num" th:text="${day.day}">1</span>
+                    <span th:text="${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(day.dow)}">Пн</span>
+                </th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="engineer : ${schedule.engineers}">
+                <td class="name-col">
+                    <span th:text="${engineer.name}">Ім'я</span>
+                    <span th:if="${engineer.onlyWorkdays}" class="badge-only-workdays"
+                          title="Лише робочі дні, не чергує">роб. дні</span>
+                </td>
+                <td th:each="day : ${schedule.days}"
+                    th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday ' : '') + (${day.day} == ${todayDay} ? 'today' : '')"
+                    th:with="mark=${day.markFor(engineer.number)}">
+                    <span th:if="${mark.name() != 'OFF'}"
+                          th:class="'mark ' + ${mark.cssClass()}"
+                          th:text="${mark.displayLetter()}">Ч</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${schedule != null}" class="legend">
+        <span class="legend-item"><span class="mark mark-duty">Ч</span> чергування</span>
+        <span class="legend-item"><span class="mark mark-work">Р</span> робочий день</span>
+        <span class="legend-item"><span class="mark mark-vacation">В</span> відпустка</span>
+        <span class="legend-item"><span class="mark mark-sick">Л</span> лікарняний</span>
+        <span class="legend-item"><span class="mark mark-session">С</span> сесія</span>
+        <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
+        <span style="margin-left: auto; display: flex; gap: 0.5rem;" th:with="ym=${#temporals.format(month, 'yyyyMM')}">
+            <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
+            <a class="nav-btn noprint" th:href="@{/schedule/{ym}/history(ym=${ym})}">Історія</a>
+            <a th:if="${canEdit}" class="nav-btn noprint" th:href="@{/schedule/{ym}/edit(ym=${ym})}">Редагувати</a>
+            <form th:if="${canGenerateNext}" method="post" class="noprint"
+                  th:action="@{/schedule/{ym}/generate-next(ym=${ym})}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn" th:text="'Згенерувати ' + ${nextYm}"></button>
+            </form>
+            <form th:if="${canDelete}" method="post" class="noprint"
+                  th:action="@{/schedule/{ym}/delete(ym=${ym})}"
+                  onsubmit="return confirm('Видалити графік цього місяця і всі наступні наявні місяці? Дію неможливо скасувати з веб-інтерфейсу.');">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn-danger">Видалити місяць</button>
+            </form>
+        </span>
+    </div>
+
+    <div class="footer-note">Duty NextGen</div>
+
+</div>
+<script th:src="@{/js/table-hover.js}"></script>
+</body>
+</html>

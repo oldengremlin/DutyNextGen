@@ -1,0 +1,44 @@
+# $Id: 202507,v 1.4 2025/07/14 13:07:39 olden Exp $
+[ Names ]
+# System Administrators' names:
+1:Леонов А.:+
+2:Журавльова К.:
+3:Кулинич А.:
+4:Кузнєцов Л.:+
+[ Dates ]
+# day	Adm_1	Adm_2	Adm_3	Adm_4
+1  Tu	W	-	D	W
+2  We	W	D	-	W
+3  Th	W	D	-	W
+4  Fr	W	-	D	W
+5  Sa	-	-	D	-
+6  Su	-	D	-	-
+7  Mo	W	D	-	W
+8  Tu	W	-	D	W
+9  We	W	-	D	W
+10 Th	W	D	-	W
+11 Fr	W	D	-	W
+12 Sa	-	-	D	-
+13 Su	-	-	D	-
+14 Mo	W	D	-	W
+15 Tu	W	D	-	W
+16 We	W	-	D	W
+17 Th	W	-	D	W
+18 Fr	W	D	-	W
+19 Sa	-	D	-	-
+20 Su	-	-	D	-
+21 Mo	W	-	D	W
+22 Tu	W	D	-	W
+23 We	W	D	-	W
+24 Th	W	-	D	W
+25 Fr	W	-	D	W
+26 Sa	-	D	-	-
+27 Su	-	D	-	-
+28 Mo	O	-	D	W
+29 Tu	O	-	D	W
+30 We	O	D	-	W
+31 Th	O	D	-	W
+[ LastDay0 ]
+-- --	-	D	-	-
+[ LastDay1 ]
+-- --	-	D	-	-

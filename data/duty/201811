@@ -1,0 +1,40 @@
+# $Id: 201811,v 1.1.1.1 2022/07/26 08:09:08 root Exp $
+[ Names ]
+# System Administrators' names:
+1::
+2:Козик Я.:
+3:Леонов А.:
+4:Кучинский Д.:
+5:Русских А.:+
+[ Dates ]
+# da0	Adm_1	Adm_2	Adm_3	Adm_4	Adm_5
+1  Th	-	-	-	-	D
+2  Fr	-	D	-	-	-
+3  Sa	-	-	D	-	-
+4  Su	-	-	-	D	-
+5  Mo	-	-	-	-	D
+6  Tu	-	D	-	-	-
+7  We	-	-	D	-	-
+8  Th	-	-	-	D	-
+9  Fr	-	-	-	-	D
+10 Sa	-	D	-	-	-
+11 Su	-	-	D	-	-
+12 Mo	-	-	O	D	-
+13 Tu	-	-	O	D	W
+14 We	-	D	O	-	W
+15 Th	-	D	O	-	W
+16 Fr	-	-	O	D	W
+17 Sa	-	-	O	D	-
+18 Su	-	D	O	-	-
+19 Mo	-	D	O	-	W
+20 Tu	-	-	O	D	W
+21 We	-	-	O	D	W
+22 Th	-	D	O	-	W
+23 Fr	-	D	O	-	W
+24 Sa	-	-	O	D	-
+25 Su	-	-	O	D	-
+26 Mo	-	O	D	-	W
+27 Tu	-	O	D	-	W
+28 We	-	O	-	D	W
+29 Th	-	O	-	D	W
+30 Fr	-	O	D	-	W

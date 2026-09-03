@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Редагування — ' + ${monthLabel}">Редагування графіка</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">&larr; скасувати</a>
+        <h1 class="month-title" th:text="'Редагування: ' + ${monthLabel}">Редагування</h1>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
+    </div>
+
+    <!-- Керування ростером (додати/видалити) — лише для ADMIN. Сервер це
+         й так перевіряє окремо (SecurityConfig: /add-engineer,
+         /remove-engineer — hasRole ADMIN), тут просто не показуємо
+         кнопки тим, хто б однаково отримав 403. -->
+    <!-- Окрема, порожня форма-ціль для кнопок "Видалити" в рядках нижче:
+         кнопка не може бути в двох формах одночасно (HTML не дозволяє
+         вкладені <form>), тож зв'язується з цією через атрибут form="". -->
+    <form th:if="${isAdmin}" id="remove-engineer-form" method="post"
+          th:action="@{/schedule/{ym}/edit/remove-engineer(ym=${#temporals.format(month, 'yyyyMM')})}">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+    <div th:if="${errors != null and !#lists.isEmpty(errors)}" class="edit-errors">
+        <strong>Не збережено — виправ і спробуй ще раз:</strong>
+        <ul>
+            <li th:each="error : ${errors}" th:text="${error}"></li>
+        </ul>
+    </div>
+
+    <form method="post" th:action="@{/schedule/{ym}/edit(ym=${#temporals.format(month, 'yyyyMM')})}">
+        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <div class="table-card">
+            <table class="edit-table">
+                <thead>
+                <tr>
+                    <th class="name-col">Адміністратор</th>
+                    <th th:each="day : ${schedule.days}"
+                        th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
+                        <span class="day-num" th:text="${day.day}">1</span>
+                        <label class="holiday-toggle" title="Свято">
+                            <input type="checkbox" th:name="'holiday_' + ${day.day}" th:checked="${day.holiday}"/>
+                            св
+                        </label>
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="engineer : ${schedule.engineers}">
+                    <td class="name-col">
+                        <input type="text" class="name-input" th:name="'name_' + ${engineer.number}"
+                               th:value="${engineer.name}" th:disabled="${!isAdmin}"/>
+                        <label class="only-workdays-label">
+                            <input type="checkbox" th:name="'onlyWorkdays_' + ${engineer.number}"
+                                   th:checked="${engineer.onlyWorkdays}" th:disabled="${!isAdmin}"/>
+                            лише робочі дні
+                        </label>
+                        <button th:if="${isAdmin}" type="submit" form="remove-engineer-form" name="number"
+                                class="remove-btn" th:value="${engineer.number}"
+                                onclick="return confirm('Видалити цього адміністратора з графіка? Усі його позначки за місяць буде втрачено.');">
+                            Видалити
+                        </button>
+                    </td>
+                    <td th:each="day : ${schedule.days}"
+                        th:classappend="(${day.weekend} ? 'weekend ' : '') + (${day.holiday} ? 'holiday' : '')">
+                        <select th:name="'mark_' + ${day.day} + '_' + ${engineer.number}">
+                            <option th:each="mark : ${marks}"
+                                    th:value="${mark.code}"
+                                    th:text="${mark.displayLetter} + ' — ' + ${mark.displayName}"
+                                    th:selected="${day.markFor(engineer.number) == mark}">
+                            </option>
+                        </select>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="edit-actions">
+            <button type="submit" class="save-btn">Зберегти</button>
+            <a class="nav-btn" th:href="@{/schedule/{ym}(ym=${#temporals.format(month, 'yyyyMM')})}">Скасувати</a>
+        </div>
+    </form>
+
+    <div th:if="${isAdmin}" class="add-engineer-card">
+        <h2 class="add-engineer-title">Додати адміністратора</h2>
+        <form method="post" class="add-engineer-form"
+              th:action="@{/schedule/{ym}/edit/add-engineer(ym=${#temporals.format(month, 'yyyyMM')})}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="text" name="name" placeholder="Ім'я" required="required" class="name-input"/>
+            <label class="only-workdays-label">
+                <input type="checkbox" name="onlyWorkdays"/>
+                лише робочі дні
+            </label>
+            <button type="submit" class="save-btn">Додати</button>
+        </form>
+        <p class="add-engineer-note">
+            Новий адміністратор з'явиться з "вихідним" на кожен день місяця — позначки
+            проставляються окремо, вище.
+        </p>
+    </div>
+
+</div>
+<script th:src="@{/js/table-hover.js}"></script>
+</body>
+</html>

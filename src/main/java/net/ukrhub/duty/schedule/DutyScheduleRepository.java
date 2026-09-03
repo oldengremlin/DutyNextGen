@@ -1,0 +1,98 @@
+package net.ukrhub.duty.schedule;
+
+import net.ukrhub.duty.config.DutyProperties;
+import net.ukrhub.duty.domain.DutySchedule;
+import net.ukrhub.duty.git.GitCommitService;
+import org.springframework.stereotype.Repository;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Читання й збереження місячних файлів графіка. Кожне {@link #save} —
+ * запис файлу плюс один git-коміт (внутрішній журнал, {@link GitCommitService}).
+ */
+@Repository
+public class DutyScheduleRepository {
+
+    private static final DateTimeFormatter FILE_NAME = DateTimeFormatter.ofPattern("yyyyMM");
+
+    private final Path dataDir;
+    private final GitCommitService gitCommitService;
+
+    public DutyScheduleRepository(DutyProperties properties, GitCommitService gitCommitService) {
+        this.dataDir = properties.dataDirPath();
+        this.gitCommitService = gitCommitService;
+    }
+
+    public Optional<DutySchedule> find(YearMonth month) {
+        Path file = fileFor(month);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+        try {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            return Optional.of(DutyScheduleFormat.parse(month, content));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+        }
+    }
+
+    public void save(DutySchedule schedule, String commitMessage, String authorName, String authorEmail) {
+        Path file = fileFor(schedule.month());
+        String content = DutyScheduleFormat.serialize(schedule);
+        try {
+            Files.createDirectories(dataDir);
+            Files.writeString(file, content, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не вдалося записати " + file, e);
+        }
+        gitCommitService.commit(dataDir, file, commitMessage, authorName, authorEmail);
+    }
+
+    public boolean exists(YearMonth month) {
+        return Files.exists(fileFor(month));
+    }
+
+    /** Місяці графіка (за наявними файлами), не раніші за {@code from}, за зростанням. */
+    public List<YearMonth> existingMonthsFrom(YearMonth from) {
+        if (!Files.isDirectory(dataDir)) {
+            return List.of();
+        }
+        try (var files = Files.list(dataDir)) {
+            return files
+                    .map(p -> p.getFileName().toString())
+                    .filter(name -> name.matches("\\d{6}"))
+                    .map(name -> YearMonth.parse(name, FILE_NAME))
+                    .filter(month -> !month.isBefore(from))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не вдалося прочитати " + dataDir, e);
+        }
+    }
+
+    /** Видаляє файли графіка за перелічені місяці одним git-комітом. */
+    public void delete(List<YearMonth> months, String commitMessage, String authorName, String authorEmail) {
+        if (months.isEmpty()) {
+            return;
+        }
+        List<Path> files = months.stream().map(this::fileFor).toList();
+        gitCommitService.delete(dataDir, files, commitMessage, authorName, authorEmail);
+    }
+
+    public Path fileFor(YearMonth month) {
+        return dataDir.resolve(FILE_NAME.format(month));
+    }
+
+    public Path dataDir() {
+        return dataDir;
+    }
+}

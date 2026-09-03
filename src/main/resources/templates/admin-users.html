@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Користувачі — адміністрування</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/}">&larr; до графіка</a>
+        <h1 class="month-title">Користувачі</h1>
+        <a class="nav-btn" th:href="@{/admin/templates}">Шаблони ротації</a>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <table>
+            <thead>
+            <tr>
+                <th class="name-col">Ім'я</th>
+                <th>Роль</th>
+                <th>Змінити роль</th>
+                <th>Прив'язка до адміністратора</th>
+                <th>Новий пароль</th>
+                <th>Видалити</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="user : ${users}">
+                <td class="name-col" th:text="${user.username}">ім'я</td>
+                <td th:text="${user.role.displayName}">Роль</td>
+                <td>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/users/{u}/role(u=${user.username})}">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}"/>
+                        <select name="role">
+                            <option th:each="r : ${roles}" th:value="${r}" th:text="${r.displayName}"
+                                    th:selected="${r == user.role}"></option>
+                        </select>
+                        <button type="submit" class="nav-btn">Змінити</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/users/{u}/link(u=${user.username})}">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}"/>
+                        <select name="linkedEngineer">
+                            <option value="" th:selected="${user.linkedEngineer == null}">— не прив'язано —</option>
+                            <option th:each="name : ${engineerNames}" th:value="${name}" th:text="${name}"
+                                    th:selected="${#strings.equals(name, user.linkedEngineer)}"></option>
+                        </select>
+                        <button type="submit" class="nav-btn">Прив'язати</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/users/{u}/password(u=${user.username})}">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}"/>
+                        <input type="password" name="password" placeholder="новий пароль" required="required"/>
+                        <input type="password" name="confirm" placeholder="повторити" required="required"/>
+                        <button type="submit" class="nav-btn">Змінити</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/users/{u}/delete(u=${user.username})}"
+                          onsubmit="return confirm('Видалити цього користувача?');">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}"/>
+                        <button type="submit" class="remove-btn">Видалити</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="add-engineer-card">
+        <h2 class="add-engineer-title">Новий користувач</h2>
+        <form method="post" class="add-engineer-form" th:action="@{/admin/users/create}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="text" name="username" placeholder="ім'я" required="required" class="name-input"/>
+            <input type="password" name="password" placeholder="пароль" required="required"/>
+            <input type="password" name="confirm" placeholder="повторити пароль" required="required"/>
+            <select name="role">
+                <option th:each="r : ${roles}" th:value="${r}" th:text="${r.displayName}"></option>
+            </select>
+            <select name="linkedEngineer">
+                <option value="">— не прив'язано —</option>
+                <option th:each="name : ${engineerNames}" th:value="${name}" th:text="${name}"></option>
+            </select>
+            <button type="submit" class="save-btn">Створити</button>
+        </form>
+        <p class="add-engineer-note">
+            <strong>Користувач</strong> — лише перегляд. <strong>Редактор</strong> — ще й позначки по днях
+            (без зміни П.І.Б. і типу). <strong>Адміністратор</strong> — усе, включно з цією сторінкою.
+            Прив'язка до адміністратора (за поточним П.І.Б.) — довідкова, автоматично переноситься
+            при перейменуванні; сама собою жодних прав не додає й не забирає.
+        </p>
+    </div>
+
+    <div class="add-engineer-card">
+        <h2 class="add-engineer-title">CalDAV</h2>
+        <div th:if="${caldavSyncDone}" class="edit-errors" style="background: var(--vacation-bg); color: var(--vacation-fg); border-color: var(--vacation-fg);">
+            Синхронізацію запущено.
+        </div>
+        <div th:if="${caldavConfigured}">
+            <form method="post" th:action="@{/admin/caldav/sync-now}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="save-btn">Синхронізувати зараз</button>
+            </form>
+            <p class="add-engineer-note">
+                Публікує події попереднього, поточного й наступного місяця в CalDAV (Baikal) — те
+                саме робить і фоновий процес раз на 5 хвилин. PUT/DELETE лише для того, що реально
+                змінилось (навіть заднім числом) — незмінене нікуди не відправляється.
+            </p>
+        </div>
+        <p th:unless="${caldavConfigured}" class="add-engineer-note">
+            CalDAV не налаштовано — ні змінних середовища <code>DUTY_CALDAV_*</code>,
+            ні файлу <code>&lt;config-dir&gt;/duty-caldav.conf</code> (формат застарілого
+            duty-caldav-sync) не знайдено, тож ні фонова синхронізація, ні ця кнопка
+            нічого не роблять.
+        </p>
+    </div>
+
+</div>
+</body>
+</html>

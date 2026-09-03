@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Новий шаблон ротації</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page" style="max-width: 24rem;">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/admin/templates}">&larr; до шаблонів</a>
+    </div>
+
+    <div class="add-engineer-card">
+        <h2 class="add-engineer-title">Новий шаблон</h2>
+        <p class="add-engineer-note" style="margin: 0 0 1rem;">
+            Перший крок — кількість слотів (чергових, під яких розрахований шаблон).
+            Розмір таблиці на наступному кроці підбирається під це число, і далі вже не міняється.
+        </p>
+        <form method="post" th:action="@{/admin/templates}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <label for="slots" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem;">
+                На скільки чергових розраховуємо шаблон?
+            </label>
+            <input id="slots" name="slots" type="number" min="2" max="12" value="2" step="1" required="required"
+                   class="name-input" style="font-size: 1.1rem; font-weight: 650; color: var(--accent); margin-bottom: 1.25rem;"/>
+            <div class="edit-actions" style="margin-top: 0;">
+                <button type="submit" class="save-btn">Далі</button>
+                <a class="nav-btn" th:href="@{/admin/templates}">Скасувати</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+</body>
+</html>
