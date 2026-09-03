@@ -28,7 +28,7 @@ import java.time.YearMonth;
  * шаблонів ротації) чи кількість чергових розійшлася з {@code
  * slots()} цього шаблону — свідомо не намагається вгадати заміну,
  * просто пропускає з поясненням у лог: {@code
- * nextgen/docs/rotation-templates.md}, розділ «Зміна кількості
+ * docs/rotation-templates.md}, розділ «Зміна кількості
  * чергових».
  */
 @Component
