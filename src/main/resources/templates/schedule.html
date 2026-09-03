@@ -67,6 +67,7 @@
         <span class="legend-item"><span class="mark mark-session">С</span> сесія</span>
         <span class="legend-item"><span class="mark" style="background: var(--holiday-bg);">&nbsp;&nbsp;</span> свято</span>
         <span style="margin-left: auto; display: flex; gap: 0.5rem;" th:with="ym=${#temporals.format(month, 'yyyyMM')}">
+            <button type="button" id="copy-for-email" class="nav-btn noprint">Копіювати для листа</button>
             <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
             <a class="nav-btn noprint" th:href="@{/schedule/{ym}/history(ym=${ym})}">Історія</a>
             <a th:if="${canEdit}" class="nav-btn noprint" th:href="@{/schedule/{ym}/edit(ym=${ym})}">Редагувати</a>
@@ -88,5 +89,6 @@
 
 </div>
 <script th:src="@{/js/table-hover.js}"></script>
+<script th:src="@{/js/copy-for-email.js}"></script>
 </body>
 </html>
