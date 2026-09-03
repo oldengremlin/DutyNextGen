@@ -58,8 +58,8 @@ public class GitCommitService {
         run(dataDir, List.of("git", "-C", dataDir.toString(), "add", "--", relativePath));
 
         String gitDate = OffsetDateTime.now().format(GIT_DATE);
-        run(dataDir, List.of("git", "-C", dataDir.toString(), "commit", "--quiet", "-m", message, "--", relativePath),
-                authorName, authorEmail, gitDate);
+        commitStagedChanges(dataDir, List.of("git", "-C", dataDir.toString(), "commit", "--quiet", "-m", message,
+                "--", relativePath), authorName, authorEmail, gitDate);
     }
 
     /** Видаляє перелічені файли одним комітом (наприклад, каскадне видалення майбутніх місяців). */
@@ -79,7 +79,7 @@ public class GitCommitService {
         List<String> commitCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
                 "commit", "--quiet", "-m", message, "--"));
         commitCommand.addAll(relativePaths);
-        run(dataDir, commitCommand, authorName, authorEmail, gitDate);
+        commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
     }
 
     /**
@@ -144,6 +144,29 @@ public class GitCommitService {
             throw new IllegalStateException("Команда %s завершилась з кодом %d: %s"
                     .formatted(command, result.exitCode(), result.output()));
         }
+    }
+
+    /**
+     * {@code git commit} із тим самим шляхом, який щойно пройшов через
+     * {@code git add}, може завершитись кодом 1 і "nothing to commit"/
+     * "nothing added to commit" — не помилка, а нешкідливий випадок: те,
+     * що записав {@code Files.writeString}, виявилось побайтово тим
+     * самим, що вже закомічено (наприклад, повторне збереження без
+     * реальних змін). Раніше це трактувалось як фатальна помилка
+     * ({@code run()}) — реальний випадок: збереження шаблону ротації
+     * падало з 500, хоча файл на диску коректно записувався.
+     */
+    private void commitStagedChanges(Path cwd, List<String> command, String authorName, String authorEmail, String gitDate) {
+        ProcessResult result = execute(cwd, command, authorName, authorEmail, gitDate);
+        if (result.exitCode() == 0) {
+            return;
+        }
+        if (result.output().contains("nothing to commit") || result.output().contains("nothing added to commit")) {
+            log.debug("Немає реальних змін для коміту в {} — пропускаю ({})", cwd, command);
+            return;
+        }
+        throw new IllegalStateException("Команда %s завершилась з кодом %d: %s"
+                .formatted(command, result.exitCode(), result.output()));
     }
 
     private ProcessResult execute(Path cwd, List<String> command, String authorName, String authorEmail, String gitDate) {

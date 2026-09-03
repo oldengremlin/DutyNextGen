@@ -37,4 +37,30 @@ class GitCommitServiceHistoryTest {
         assertThat(history.get(1).author()).isEqualTo("Марченко І.");
         assertThat(history.get(1).diff()).contains("+перша версія");
     }
+
+    /**
+     * Реальний випадок на production: збереження шаблону ротації падало
+     * з 500 (git commit завершувався кодом 1, "nothing added to commit
+     * but untracked files present"), хоча файл на диску коректно
+     * записувався — записаний вміст побайтово збігався з уже
+     * закомiченим (повторне збереження без реальних змін). Це має бути
+     * нешкідливим no-op, а не винятком.
+     */
+    @Test
+    void committingUnchangedContentIsNoopNotException(@TempDir Path tempDir) throws IOException {
+        GitCommitService service = new GitCommitService();
+        Path dataDir = tempDir.resolve("data");
+        Path file = dataDir.resolve("203401");
+
+        Files.createDirectories(dataDir);
+        Files.writeString(file, "той самий вміст\n", StandardCharsets.UTF_8);
+        service.commit(dataDir, file, "перший коміт", "Марченко І.", "marchenko@example.com");
+
+        // Той самий вміст записано ще раз (наприклад, повторне
+        // "Зберегти" без реальних змін) — git тут не має чого комітити.
+        Files.writeString(file, "той самий вміст\n", StandardCharsets.UTF_8);
+        service.commit(dataDir, file, "другий коміт (без реальних змін)", "Марченко І.", "marchenko@example.com");
+
+        assertThat(service.history(dataDir, file)).hasSize(1);
+    }
 }
