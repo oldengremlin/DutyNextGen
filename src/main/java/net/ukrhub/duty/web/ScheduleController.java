@@ -4,6 +4,7 @@ import net.ukrhub.duty.auth.Role;
 import net.ukrhub.duty.auth.RoleCheck;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.schedule.DutyScheduleRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,9 +22,12 @@ import java.time.YearMonth;
 public class ScheduleController {
 
     private final DutyScheduleRepository repository;
+    private final String appVersion;
 
-    public ScheduleController(DutyScheduleRepository repository) {
+    public ScheduleController(DutyScheduleRepository repository,
+                               @Value("${app.version}") String appVersion) {
         this.repository = repository;
+        this.appVersion = appVersion;
     }
 
     @GetMapping("/")
@@ -35,6 +39,7 @@ public class ScheduleController {
     public String schedule(@PathVariable String ym, Model model, Authentication authentication) {
         YearMonth month = MonthPath.parse(ym);
 
+        model.addAttribute("appVersion", appVersion);
         model.addAttribute("month", month);
         model.addAttribute("monthLabel", UkrainianCalendar.monthName(month.getMonth()) + " " + month.getYear());
         model.addAttribute("prevYm", MonthPath.format(month.minusMonths(1)));

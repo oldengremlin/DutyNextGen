@@ -13,7 +13,7 @@
 
     <groupId>net.ukrhub</groupId>
     <artifactId>duty-nextgen</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>Duty NextGen</name>
@@ -56,10 +56,44 @@
 
     <build>
         <finalName>duty-nextgen</finalName>
+        <resources>
+            <!-- Фільтрація (@project.version@ -> реальна версія) лише для
+                 application.yml: увімкнена на весь src/main/resources вона
+                 зачепила б Thymeleaf-шаблони й JS/CSS, де ${...} і @media
+                 мають зовсім інший сенс. -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>application.yml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>application.yml</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <!-- @-делімітер замість дефолтного ${...}: application.yml
+                         сам активно використовує ${DUTY_DATA_DIR:./data/duty}
+                         для Spring-плейсхолдерів, які Maven-фільтрація інакше
+                         спробувала б підставити (і зламала б) на етапі збірки. -->
+                    <useDefaultDelimiters>false</useDefaultDelimiters>
+                    <delimiters>
+                        <delimiter>@</delimiter>
+                    </delimiters>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
