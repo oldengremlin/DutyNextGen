@@ -12,7 +12,8 @@ class UserLinkServiceTest {
 
     private static UserLinkService serviceFor(Path tempDir) {
         return new UserLinkService(new DutyProperties(
-                tempDir.resolve("data").toString(), tempDir.toString(), null, tempDir.resolve("templates").toString()));
+                tempDir.resolve("data").toString(), tempDir.toString(), null, tempDir.resolve("templates").toString(),
+                tempDir.resolve("exchanges").toString()));
     }
 
     @Test

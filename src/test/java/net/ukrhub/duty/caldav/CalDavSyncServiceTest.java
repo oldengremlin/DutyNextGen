@@ -25,7 +25,7 @@ class CalDavSyncServiceTest {
     private static DutyScheduleRepository repositoryIn(Path tempDir) {
         DutyProperties properties = new DutyProperties(
                 tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), null,
-                tempDir.resolve("templates").toString());
+                tempDir.resolve("templates").toString(), tempDir.resolve("exchanges").toString());
         return new DutyScheduleRepository(properties, new GitCommitService());
     }
 
@@ -34,7 +34,7 @@ class CalDavSyncServiceTest {
                 baseUrl, "noc", "secret", tempDir.resolve("caldav-state").toString());
         DutyProperties properties = new DutyProperties(
                 tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), caldav,
-                tempDir.resolve("templates").toString());
+                tempDir.resolve("templates").toString(), tempDir.resolve("exchanges").toString());
         return new CalDavSyncService(repository, properties);
     }
 
@@ -82,7 +82,7 @@ class CalDavSyncServiceTest {
                     "", "", "", tempDir.resolve("caldav-state").toString());
             DutyProperties properties = new DutyProperties(
                     tempDir.resolve("data").toString(), configDir.toString(), blankCaldav,
-                    tempDir.resolve("templates").toString());
+                    tempDir.resolve("templates").toString(), tempDir.resolve("exchanges").toString());
             DutyScheduleRepository repository = new DutyScheduleRepository(properties, new GitCommitService());
             YearMonth month = YearMonth.of(2040, 10);
             seed(repository, month, DutyMark.DUTY);

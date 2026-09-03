@@ -33,7 +33,7 @@ class ScheduleGenerationSchedulerTest {
     private static DutyProperties properties(Path tempDir) {
         return new DutyProperties(
                 tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), null,
-                tempDir.resolve("templates").toString());
+                tempDir.resolve("templates").toString(), tempDir.resolve("exchanges").toString());
     }
 
     private static RotationTemplate classicTemplate(RotationTemplateRepository templateRepository) {

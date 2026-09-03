@@ -32,6 +32,9 @@ duty:
   # від config-dir. Типово підкаталог data-dir (та сама точка монтування
   # в Docker, окремого тому не треба — як і caldav.state-dir нижче).
   templates-dir: ${DUTY_TEMPLATES_DIR:./data/templates}
+  # Пропозиції обміну чергуваннями (DutyExchangeRepository) — той самий
+  # підхід, що й templates-dir: git-версіюється, типово підкаталог data-dir.
+  exchanges-dir: ${DUTY_EXCHANGES_DIR:./data/exchanges}
   caldav:
     # Порожній base-url = CalDAV-синхронізація вимкнена (типово) —
     # ні фоновий job, ні кнопка "Синхронізувати" нічого не роблять.

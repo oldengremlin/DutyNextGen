@@ -62,6 +62,31 @@ public class GitCommitService {
                 "--", relativePath), authorName, authorEmail, gitDate);
     }
 
+    /**
+     * Той самий {@link #commit(Path, Path, String, String, String)}, але
+     * для кількох файлів одним комітом — щоб дія, яка чіпає більше ніж
+     * один файл (наприклад, обмін чергуваннями між двома різними
+     * місячними файлами графіка), не могла лишитись застосованою лише
+     * наполовину.
+     */
+    public void commit(Path dataDir, List<Path> filesToCommit, String message, String authorName, String authorEmail) {
+        ensureRepo(dataDir);
+
+        List<String> relativePaths = filesToCommit.stream()
+                .map(f -> dataDir.relativize(f).toString())
+                .toList();
+
+        List<String> addCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(), "add", "--"));
+        addCommand.addAll(relativePaths);
+        run(dataDir, addCommand);
+
+        String gitDate = OffsetDateTime.now().format(GIT_DATE);
+        List<String> commitCommand = new ArrayList<>(List.of("git", "-C", dataDir.toString(),
+                "commit", "--quiet", "-m", message, "--"));
+        commitCommand.addAll(relativePaths);
+        commitStagedChanges(dataDir, commitCommand, authorName, authorEmail, gitDate);
+    }
+
     /** Видаляє перелічені файли одним комітом (наприклад, каскадне видалення майбутніх місяців). */
     public void delete(Path dataDir, List<Path> filesToDelete, String message, String authorName, String authorEmail) {
         ensureRepo(dataDir);

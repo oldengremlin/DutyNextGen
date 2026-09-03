@@ -48,7 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/schedule/*/generate-next/**").hasRole(Role.ADMIN.springRole())
                         .requestMatchers(HttpMethod.POST,
                                 "/schedule/*/edit/add-engineer", "/schedule/*/edit/remove-engineer",
-                                "/schedule/*/generate-next", "/schedule/*/delete")
+                                "/schedule/*/generate-next", "/schedule/*/delete",
+                                "/exchange/*/approve", "/exchange/*/reject")
                         .hasRole(Role.ADMIN.springRole())
                         .requestMatchers("/schedule/*/edit").hasAnyRole(Role.EDITOR.springRole(), Role.ADMIN.springRole())
                         .anyRequest().authenticated())

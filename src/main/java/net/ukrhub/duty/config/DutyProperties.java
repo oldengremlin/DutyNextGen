@@ -12,10 +12,12 @@ import java.nio.file.Path;
  * навмисно поза git-історією графіка, {@code templatesDir} — шаблони
  * ротації ({@code RotationTemplateRepository}) — так само git-версіюється,
  * як і сам графік (той самий {@code GitCommitService}), тому окремо від
- * {@code configDir}.
+ * {@code configDir}. {@code exchangesDir} — пропозиції обміну
+ * чергуваннями ({@code DutyExchangeRepository}) — той самий підхід, що й
+ * templatesDir.
  */
 @ConfigurationProperties(prefix = "duty")
-public record DutyProperties(String dataDir, String configDir, Caldav caldav, String templatesDir) {
+public record DutyProperties(String dataDir, String configDir, Caldav caldav, String templatesDir, String exchangesDir) {
 
     /**
      * @param stateDir каталог для стану синхронізації (опубліковані UID +
@@ -44,5 +46,9 @@ public record DutyProperties(String dataDir, String configDir, Caldav caldav, St
 
     public Path templatesDirPath() {
         return Path.of(templatesDir);
+    }
+
+    public Path exchangesDirPath() {
+        return Path.of(exchangesDir);
     }
 }

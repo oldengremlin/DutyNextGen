@@ -561,6 +561,10 @@ td.hover-col, th.hover-col {
     color: var(--muted);
 }
 
+.nav-btn .badge {
+    margin-left: 0.4em;
+}
+
 .btn-small {
     padding: 0.2rem 0.5rem;
     font-size: 0.72rem;
@@ -691,6 +695,77 @@ td.hover-col, th.hover-col {
     background: var(--accent);
     margin: 0 0.2rem;
     border-radius: 1px;
+}
+
+/* --- Обмін чергуваннями --- */
+
+.exchange-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.exchange-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    background: var(--surface);
+}
+
+.exchange-date-locked {
+    opacity: 0.45;
+}
+
+.exchange-counterpart-picker {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.exchange-columns {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.exchange-columns fieldset {
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    padding: 0.75rem 1rem;
+    min-width: 14rem;
+}
+
+.exchange-date-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+    cursor: pointer;
+}
+
+.exchange-hint {
+    color: var(--muted);
+    font-size: 0.85rem;
+    max-width: 40rem;
+}
+
+.exchange-draft-table, .exchange-proposals-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.25rem;
+}
+
+.exchange-draft-table td, .exchange-proposals-table td, .exchange-proposals-table th {
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    vertical-align: top;
 }
 
 @media print {

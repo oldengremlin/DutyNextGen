@@ -69,6 +69,8 @@
         <span style="margin-left: auto; display: flex; gap: 0.5rem;" th:with="ym=${#temporals.format(month, 'yyyyMM')}">
             <button type="button" id="copy-for-email" class="nav-btn noprint">Копіювати для листа</button>
             <a th:if="${isAdmin}" class="nav-btn noprint" th:href="@{/admin/users}">Користувачі</a>
+            <a class="nav-btn noprint" th:href="@{/exchange}">Обмін чергуваннями<span
+                    th:if="${pendingExchangeCount > 0}" class="badge" th:text="${pendingExchangeCount}">1</span></a>
             <a class="nav-btn noprint" th:href="@{/schedule/{ym}/history(ym=${ym})}">Історія</a>
             <a th:if="${canEdit}" class="nav-btn noprint" th:href="@{/schedule/{ym}/edit(ym=${ym})}">Редагувати</a>
             <form th:if="${canGenerateNext}" method="post" class="noprint"

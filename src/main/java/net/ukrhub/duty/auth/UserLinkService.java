@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Переносить прив'язку "Користувача" до "Адміністратора" (інженера) при
@@ -24,6 +25,18 @@ public class UserLinkService {
 
     public UserLinkService(DutyProperties properties) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
+    }
+
+    /**
+     * П.І.Б. інженера, прив'язаного до {@code username} — {@code UserStore}
+     * пакетно-приватний навмисно (див. {@code UserAdminController.UserRow}),
+     * це єдиний легальний спосіб дізнатись прив'язку з інших пакетів
+     * (потрібно {@code DutyExchangeController}, щоб визначити, чий графік
+     * показувати в діалозі обміну чергуваннями).
+     */
+    public Optional<String> linkedEngineerOf(String username) {
+        UserStore.StoredUser user = UserStore.readUsers(usersFile).get(username);
+        return user != null ? Optional.ofNullable(user.linkedEngineer()) : Optional.empty();
     }
 
     public void renameEngineer(String oldName, String newName) {

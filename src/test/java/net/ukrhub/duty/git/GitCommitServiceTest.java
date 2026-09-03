@@ -1,0 +1,43 @@
+package net.ukrhub.duty.git;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class GitCommitServiceTest {
+
+    /**
+     * Реальний випадок: обмін чергуваннями може торкатись двох різних
+     * місячних файлів графіка одразу — має піти одним комітом, а не
+     * двома (інакше збій між ними лишив би пропозицію застосованою лише
+     * наполовину).
+     */
+    @Test
+    void multiFileCommitWritesBothFilesInOneCommit(@TempDir Path tempDir) throws IOException, InterruptedException {
+        GitCommitService service = new GitCommitService();
+        Path fileA = tempDir.resolve("202609");
+        Path fileB = tempDir.resolve("202610");
+        Files.writeString(fileA, "вміст A", StandardCharsets.UTF_8);
+        Files.writeString(fileB, "вміст B", StandardCharsets.UTF_8);
+
+        service.commit(tempDir, List.of(fileA, fileB), "обмін чергуваннями", "Тест Тестович", "test@example.com");
+
+        Process countLog = new ProcessBuilder("git", "-C", tempDir.toString(), "log", "--oneline").start();
+        String countOutput = new String(countLog.getInputStream().readAllBytes());
+        countLog.waitFor();
+        assertThat(countOutput.strip().lines()).hasSize(1);
+
+        Process showLog = new ProcessBuilder("git", "-C", tempDir.toString(),
+                "show", "--name-only", "--format=%an|%s").start();
+        String showOutput = new String(showLog.getInputStream().readAllBytes());
+        showLog.waitFor();
+        assertThat(showOutput).contains("Тест Тестович|обмін чергуваннями").contains("202609").contains("202610");
+    }
+}

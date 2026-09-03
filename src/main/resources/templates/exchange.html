@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Обмін чергуваннями</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/}">&larr; до графіка</a>
+        <h1 class="month-title">Обмін чергуваннями</h1>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
+    </div>
+
+    <div th:if="${exchangeError != null}" class="edit-errors">
+        <span th:text="${exchangeError}"></span>
+    </div>
+
+    <div th:if="${myEngineer == null and !isAdmin}" class="empty-state">
+        Обмін чергуваннями доступний лише черговим інженерам.
+    </div>
+
+    <th:block th:if="${myEngineer != null}">
+
+        <h2>Мої дати (<span th:text="${myEngineer}"></span>)</h2>
+        <p th:if="${#lists.isEmpty(myDates)}" class="empty-state">
+            Немає майбутніх днів чергування чи роботи для обміну.
+        </p>
+        <div class="exchange-dates" th:unless="${#lists.isEmpty(myDates)}">
+            <span th:each="d : ${myDates}" class="exchange-date" th:classappend="${d.locked} ? 'exchange-date-locked' : ''"
+                  th:title="${d.locked} ? 'Вже задіяна в іншій пропозиції' : ''">
+                <span class="mark" th:classappend="${d.type.cssClass()}" th:text="${d.type.displayLetter()}">Ч</span>
+                <span th:text="${#temporals.format(d.date, 'dd.MM')} + ' ' + ${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(d.date.dayOfWeek)}">07.09 Пн</span>
+            </span>
+        </div>
+
+        <h2>Запропонувати обмін</h2>
+        <form method="get" th:action="@{/exchange}" class="exchange-counterpart-picker">
+            <select name="counterpart">
+                <option value="">— обрати колегу —</option>
+                <option th:each="e : ${otherEngineers}" th:value="${e}" th:text="${e}" th:selected="${e == counterpart}"></option>
+            </select>
+            <button type="submit" class="nav-btn">Показати дати</button>
+        </form>
+
+        <div th:if="${counterpart != null}">
+            <form method="post" th:action="@{/exchange/draft/add}" class="exchange-add-step">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="counterpart" th:value="${counterpart}"/>
+
+                <div class="exchange-columns">
+                    <fieldset>
+                        <legend th:text="'Моя дата (' + ${myEngineer} + ')'">Моя дата</legend>
+                        <label class="exchange-date-choice" th:each="d : ${myDates}" th:unless="${d.locked}">
+                            <input type="radio" name="myDate" th:value="${d.date}" required="required"/>
+                            <span class="mark" th:classappend="${d.type.cssClass()}" th:text="${d.type.displayLetter()}">Ч</span>
+                            <span th:text="${#temporals.format(d.date, 'dd.MM')} + ' ' + ${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(d.date.dayOfWeek)}">07.09 Пн</span>
+                        </label>
+                    </fieldset>
+                    <fieldset>
+                        <legend th:text="'Дата колеги (' + ${counterpart} + ')'">Дата колеги</legend>
+                        <label class="exchange-date-choice" th:each="d : ${counterpartDates}" th:unless="${d.locked}">
+                            <input type="radio" name="theirDate" th:value="${d.date}" required="required"/>
+                            <span class="mark" th:classappend="${d.type.cssClass()}" th:text="${d.type.displayLetter()}">Ч</span>
+                            <span th:text="${#temporals.format(d.date, 'dd.MM')} + ' ' + ${T(net.ukrhub.duty.web.UkrainianCalendar).dayOfWeekShort(d.date.dayOfWeek)}">09.09 Ср</span>
+                        </label>
+                    </fieldset>
+                </div>
+                <button type="submit" class="nav-btn">Додати крок у чернетку</button>
+                <p class="exchange-hint">Тип обміну (D-на-D чи W-на-W) визначається типом вашої обраної дати — колегу можна обрати лише з датою того самого типу, інакше крок буде відхилено.</p>
+            </form>
+        </div>
+
+        <th:block th:if="${!#lists.isEmpty(draft)}">
+            <h2>Чернетка пропозиції</h2>
+            <table class="exchange-draft-table">
+                <tbody>
+                <tr th:each="s, it : ${draft}">
+                    <td th:text="${s.counterpartName}">Колега</td>
+                    <td>
+                        <span class="mark" th:classappend="${s.step.type.cssClass()}" th:text="${s.step.type.displayLetter()}">Ч</span>
+                        <span th:text="${s.step.initiatorDate}"></span> &rarr; <span th:text="${s.step.counterpartDate}"></span>
+                    </td>
+                    <td>
+                        <form method="post" th:action="@{/exchange/draft/remove}">
+                            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <input type="hidden" name="index" th:value="${it.index}"/>
+                            <button type="submit" class="nav-btn-danger">Прибрати</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <form method="post" th:action="@{/exchange/draft/submit}">
+                <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="nav-btn">Надіслати пропозицію</button>
+            </form>
+        </th:block>
+
+        <h2>Мої пропозиції</h2>
+        <p th:if="${#lists.isEmpty(myProposals)}" class="empty-state">Немає жодної пропозиції.</p>
+        <table class="exchange-proposals-table" th:unless="${#lists.isEmpty(myProposals)}">
+            <thead>
+            <tr>
+                <th>Ініціатор</th>
+                <th>Колега</th>
+                <th>Кроки</th>
+                <th>Стан</th>
+                <th>Дія</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${myProposals}">
+                <td th:text="${p.initiatorName}"></td>
+                <td th:text="${p.counterpartName}"></td>
+                <td>
+                    <div th:each="s : ${p.steps}">
+                        <span class="mark" th:classappend="${s.type.cssClass()}" th:text="${s.type.displayLetter()}">Ч</span>
+                        <span th:text="${s.initiatorDate}"></span> &harr; <span th:text="${s.counterpartDate}"></span>
+                    </div>
+                </td>
+                <td th:text="${p.status.displayName()}"></td>
+                <td>
+                    <form th:if="${p.status == T(net.ukrhub.duty.domain.DutyExchangeStatus).PENDING and p.counterpartName == myEngineer}"
+                          method="post" th:action="@{/exchange/{id}/accept(id=${p.id})}" style="display:inline;">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="nav-btn">Прийняти</button>
+                    </form>
+                    <form th:if="${p.status == T(net.ukrhub.duty.domain.DutyExchangeStatus).PENDING and p.counterpartName == myEngineer}"
+                          method="post" th:action="@{/exchange/{id}/decline(id=${p.id})}" style="display:inline;">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="nav-btn-danger">Відхилити</button>
+                    </form>
+                    <form th:if="${p.status != T(net.ukrhub.duty.domain.DutyExchangeStatus).PENDING
+                                    and p.status != T(net.ukrhub.duty.domain.DutyExchangeStatus).ACCEPTED}"
+                          method="post" th:action="@{/exchange/{id}/ack(id=${p.id})}" style="display:inline;">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="nav-btn">Зрозуміло</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </th:block>
+
+    <th:block th:if="${isAdmin}">
+        <h2>На затвердження</h2>
+        <p th:if="${#lists.isEmpty(pendingApproval)}" class="empty-state">Немає пропозицій, що чекають на затвердження.</p>
+        <table class="exchange-proposals-table" th:unless="${#lists.isEmpty(pendingApproval)}">
+            <thead>
+            <tr>
+                <th>Ініціатор</th>
+                <th>Колега</th>
+                <th>Прев'ю обміну</th>
+                <th>Дія</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${pendingApproval}">
+                <td th:text="${p.initiatorName}"></td>
+                <td th:text="${p.counterpartName}"></td>
+                <td>
+                    <div th:each="s : ${p.steps}">
+                        <span class="mark" th:classappend="${s.type.cssClass()}" th:text="${s.type.displayLetter()}">Ч</span>
+                        <span th:text="${p.initiatorName}"></span> <span th:text="${s.initiatorDate}"></span>
+                        &harr;
+                        <span th:text="${p.counterpartName}"></span> <span th:text="${s.counterpartDate}"></span>
+                    </div>
+                </td>
+                <td>
+                    <form method="post" th:action="@{/exchange/{id}/approve(id=${p.id})}" style="display:inline;">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="nav-btn">Затвердити</button>
+                    </form>
+                    <form method="post" th:action="@{/exchange/{id}/reject(id=${p.id})}" style="display:inline;">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="nav-btn-danger">Відхилити</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </th:block>
+
+</div>
+</body>
+</html>
