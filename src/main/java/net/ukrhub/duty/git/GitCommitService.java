@@ -209,7 +209,7 @@ public class GitCommitService {
                 pb.environment().put("GIT_COMMITTER_DATE", gitDate);
             }
 
-            Process process = pb.start();
+            Process process = startWithRetry(pb, command);
             String output = new String(process.getInputStream().readAllBytes());
             int exitCode = process.waitFor();
             return new ProcessResult(exitCode, output);
@@ -219,6 +219,39 @@ public class GitCommitService {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Перервано під час виконання " + command, e);
         }
+    }
+
+    /**
+     * У production (Docker) зрідка спостерігався збій самого
+     * {@code pb.start()} — {@code IOException: Exec failed, error: 2
+     * (No such file or directory)} — хоча і git, і робочий каталог
+     * точно існують (той самий каталог за мить до цього успішно
+     * використовувався в цьому ж запиті). Локально не відтворюється;
+     * схоже на транзиентний збій спавну процесу на рівні JVM/ОС, а не
+     * на помилку самої команди. Кілька коротких повторів дешевші й
+     * надійніші, ніж намагатись довести причину без доступу до
+     * контейнера.
+     */
+    private Process startWithRetry(ProcessBuilder pb, List<String> command) throws IOException {
+        IOException last = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return pb.start();
+            } catch (IOException e) {
+                last = e;
+                log.warn("Спроба {} запустити {} не вдалась: {}", attempt, command, e.getMessage());
+                if (attempt == 3) {
+                    break;
+                }
+                try {
+                    Thread.sleep(50L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        throw last;
     }
 
     private record ProcessResult(int exitCode, String output) {
