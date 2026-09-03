@@ -217,4 +217,41 @@ class CalDavSyncServiceTest {
             assertThat(server.putUids).hasSize(3);
         }
     }
+
+    /**
+     * Реальний випадок: видалення адміністратора з графіка місяця
+     * ({@code ScheduleEditController.removeEngineer}) прибирає його і зі
+     * списку {@code engineers()}, і з marks кожного дня — тобто
+     * {@code DutyIcsGenerator.generate()} для нього вже нічого не видає.
+     * Окремого коду для цього не потрібно: те саме "зникло з newState"
+     * DELETE, що й при знятті позначки, спрацьовує так само.
+     */
+    @Test
+    void removedEngineerEventsAreDeletedFromCalDav(@TempDir Path tempDir) throws IOException {
+        try (FakeCalDavServer server = new FakeCalDavServer("noc", "secret")) {
+            DutyScheduleRepository repository = repositoryIn(tempDir);
+            YearMonth month = YearMonth.of(2040, 9);
+            List<Engineer> engineers = List.of(
+                    new Engineer(1, "Іванов І.", false),
+                    new Engineer(2, "Петров П.", false));
+            DutySchedule withBoth = new DutySchedule(
+                    month, engineers,
+                    List.of(new DutyDay(1, DayOfWeek.TUESDAY, Map.of(1, DutyMark.DUTY, 2, DutyMark.WORK))),
+                    Map.of(), Map.of());
+            repository.save(withBoth, "сід", "Тест", "test@example.com");
+            CalDavSyncService service = serviceFor(repository, tempDir, server.baseUrl());
+            service.syncMonth(month);
+            assertThat(server.putUids).hasSize(2);
+
+            DutySchedule withoutSecond = new DutySchedule(
+                    month, List.of(engineers.get(0)),
+                    List.of(new DutyDay(1, DayOfWeek.TUESDAY, Map.of(1, DutyMark.DUTY))),
+                    Map.of(), Map.of());
+            repository.save(withoutSecond, "видалення адміністратора", "Тест", "test@example.com");
+            service.syncMonth(month);
+
+            assertThat(server.deleteUids).containsExactly("duty-20400901-2@duty.ukrhub.net");
+            assertThat(server.putUids).as("другого адміністратора лише видалено, не перепубліковано").hasSize(2);
+        }
+    }
 }
