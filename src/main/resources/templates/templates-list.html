@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Шаблони ротації</title>
+    <link rel="stylesheet" th:href="@{/css/schedule.css}"/>
+</head>
+<body>
+<div class="page">
+
+    <div class="toolbar">
+        <a class="nav-btn" th:href="@{/admin/users}">&larr; до адміністрування</a>
+        <h1 class="month-title">Шаблони ротації</h1>
+        <form method="post" class="noprint" th:action="@{/logout}">
+            <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit" class="nav-btn">Вийти</button>
+        </form>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1.25rem;">
+        <a class="save-btn" style="text-decoration: none; display: inline-block;" th:href="@{/admin/templates/new}">+ Новий шаблон</a>
+    </div>
+
+    <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
+        Ще немає жодного шаблону ротації.
+    </div>
+
+    <div class="template-list">
+        <div class="template-card" th:each="template : ${templates}">
+            <div class="template-card-head">
+                <div class="template-title-group">
+                    <h2 class="template-card-title" th:text="${template.name}">Назва шаблону</h2>
+                    <span class="badge" th:text="${template.slots} + ' чергових'">2 чергових</span>
+                    <span class="badge badge-muted" th:text="'період ' + ${template.period} + ' дн.'">період 4 дн.</span>
+                </div>
+                <div class="template-card-actions">
+                    <a class="nav-btn" th:href="@{/admin/templates/{id}/edit(id=${template.id})}">Редагувати</a>
+                    <form method="post" class="inline-form"
+                          th:action="@{/admin/templates/{id}/delete(id=${template.id})}"
+                          onsubmit="return confirm('Видалити цей шаблон?');">
+                        <input type="hidden" th:if="${_csrf} != null" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="remove-btn">Видалити</button>
+                    </form>
+                </div>
+            </div>
+            <div class="template-grid">
+                <div class="template-row" th:each="slot : ${#numbers.sequence(0, template.slots() - 1)}">
+                    <span class="template-slot-label" th:text="'Слот ' + (${slot} + 1)">Слот 1</span>
+                    <div class="template-cells">
+                        <span class="mark" th:each="day : ${#numbers.sequence(0, template.period() - 1)}"
+                              th:classappend="${template.markAt(slot, day).cssClass()}"
+                              th:text="${template.markAt(slot, day).code()}">D</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

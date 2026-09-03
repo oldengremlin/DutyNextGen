@@ -21,7 +21,8 @@ class ScheduleGenerationSchedulerTest {
 
     private DutyScheduleRepository repositoryIn(Path tempDir) {
         DutyProperties properties = new DutyProperties(
-                tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), null);
+                tempDir.resolve("data").toString(), tempDir.resolve("config").toString(), null,
+                tempDir.resolve("templates").toString());
         return new DutyScheduleRepository(properties, new GitCommitService());
     }
 

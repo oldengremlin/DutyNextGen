@@ -11,7 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserLinkServiceTest {
 
     private static UserLinkService serviceFor(Path tempDir) {
-        return new UserLinkService(new DutyProperties(tempDir.resolve("data").toString(), tempDir.toString(), null));
+        return new UserLinkService(new DutyProperties(
+                tempDir.resolve("data").toString(), tempDir.toString(), null, tempDir.resolve("templates").toString()));
     }
 
     @Test

@@ -5,14 +5,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.nio.file.Path;
 
 /**
- * Конфігурація застосунку — див. application.yml. Обидва каталоги в
- * production мають бути зовнішніми томами (не запікаються в Docker-образ):
+ * Конфігурація застосунку — див. application.yml. Каталоги в production
+ * мають бути зовнішніми томами (не запікаються в Docker-образ):
  * {@code dataDir} — графік чергувань (git-версіюється самим застосунком),
  * {@code configDir} — облікові записи веб-автентифікації (users.txt),
- * навмисно поза git-історією графіка.
+ * навмисно поза git-історією графіка, {@code templatesDir} — шаблони
+ * ротації ({@code RotationTemplateRepository}) — так само git-версіюється,
+ * як і сам графік (той самий {@code GitCommitService}), тому окремо від
+ * {@code configDir}.
  */
 @ConfigurationProperties(prefix = "duty")
-public record DutyProperties(String dataDir, String configDir, Caldav caldav) {
+public record DutyProperties(String dataDir, String configDir, Caldav caldav, String templatesDir) {
 
     /**
      * @param stateDir каталог для стану синхронізації (опубліковані UID +
@@ -37,5 +40,9 @@ public record DutyProperties(String dataDir, String configDir, Caldav caldav) {
 
     public Path configDirPath() {
         return Path.of(configDir);
+    }
+
+    public Path templatesDirPath() {
+        return Path.of(templatesDir);
     }
 }

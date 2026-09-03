@@ -34,6 +34,11 @@ ENV TZ="Europe/Kiev"
 # Дивись README.md, розділ «Запуск у Docker».
 ENV DUTY_DATA_DIR=/data
 ENV DUTY_CONFIG_DIR=/config
+# Шаблони ротації чергувань — git-версіюються так само, як і сам графік
+# (RotationTemplateRepository використовує той самий GitCommitService),
+# тому підкаталог уже змонтованого /data, а не /config: окремого тому
+# не треба, ті самі git-коміти, що й для місячних файлів графіка.
+ENV DUTY_TEMPLATES_DIR=/data/templates
 # Кеш стану CalDAV-синку (опубліковані UID + хеші вмісту) — навмисно
 # всередині вже змонтованого /config, а не окремий том: це лише
 # внутрішній кеш (втрата — не катастрофа, найгірше кілька зайвих PUT'ів
