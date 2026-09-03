@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+app:
+  # Підставляється Maven-фільтрацією з версії pom.xml (build/resources у
+  # pom.xml) — той самий рядок, що йде у футер сторінки графіка.
+  version: '@project.version@'
+
 spring:
   application:
     name: duty-nextgen
