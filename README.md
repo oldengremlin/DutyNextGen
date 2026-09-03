@@ -473,6 +473,30 @@ docker exec -it duty-nextgen java -jar /app/app.jar add-user noc
 `YearMonth.now()`) впливають і на генерацію графіка, і на межі
 CalDAV-синхронізації (див. розділ вище).
 
+### За реверс-проксі (nginx тощо)
+
+`server.forward-headers-strategy: framework` (`application.yml`) увімкнено
+завжди — без нього контейнер під час редиректу (`redirect:/schedule/...`
+на `/`, чи будь-де ще) будує абсолютний URL з **власного** `host:port`,
+яким його бачить контейнер (наприклад, `duty-nextgen.events-network:8080`
+у Docker-мережі) — і саме туди піде браузер клієнта, а не на публічну
+адресу. З цим налаштуванням Spring натомість читає реальний зовнішній
+хост із заголовків `X-Forwarded-*`, які проксі має передавати:
+
+```nginx
+location / {
+    proxy_set_header X-Forwarded-Host  $host:$server_port;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_pass http://duty-nextgen:8080;
+}
+```
+
+`X-Forwarded-Proto` — обов'язково, навіть якщо зараз лише `http`: без
+нього Spring підставляє схему з'єднання проксі → контейнер (типово
+`http`), і якщо реверс-проксі згодом термінує TLS, усі згенеровані
+посилання й далі будуть `http://`, поки не додати цей заголовок.
+
 ## Дані та історія
 
 Реальні графіки чергувань (`data/duty/`) свідомо **не** зберігаються в

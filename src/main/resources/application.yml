@@ -1,5 +1,10 @@
 server:
   port: 8080
+  # За реверс-проксі (nginx тощо) контейнер бачить лише внутрішній
+  # host:port (наприклад, Docker Compose service name) — без цього
+  # редиректи (redirect:/schedule/...) підуть саме на нього, а не на
+  # публічну адресу з X-Forwarded-Host/-Proto.
+  forward-headers-strategy: framework
 
 app:
   # Підставляється Maven-фільтрацією з версії pom.xml (build/resources у
