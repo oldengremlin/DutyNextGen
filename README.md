@@ -61,7 +61,9 @@ mvn spring-boot:run
 (за замовчуванням `./data/duty`), каталог конфігурації (облікові записи
 веб-автентифікації) — `DUTY_CONFIG_DIR` (за замовчуванням `./config`),
 каталог шаблонів ротації — `DUTY_TEMPLATES_DIR` (за замовчуванням
-`./data/templates`) — детальніше нижче, розділ «Шаблони ротації».
+`./data/templates`) — детальніше нижче, розділ «Шаблони ротації»,
+каталог пропозицій обміну чергуваннями — `DUTY_EXCHANGES_DIR` (за
+замовчуванням `./data/exchanges`) — розділ «Обмін чергуваннями».
 Налаштування CalDAV — або файл `<config-dir>/duty-caldav.conf`, або
 змінні середовища `DUTY_CALDAV_BASE_URL`/`DUTY_CALDAV_USER`/
 `DUTY_CALDAV_PASSWORD`, плюс `DUTY_CALDAV_STATE_DIR` (кеш стану синку,

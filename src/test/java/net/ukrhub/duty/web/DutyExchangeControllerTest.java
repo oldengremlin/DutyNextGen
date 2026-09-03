@@ -20,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.nio.file.Path;
 import java.time.DayOfWeek;
@@ -110,6 +111,37 @@ class DutyExchangeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Кулинич А.")))
                 .andExpect(content().string(containsString("Журавльова К.")));
+    }
+
+    /**
+     * Реальний production-баг: П.І.Б. колеги (кирилиця, пробіл) прямо в
+     * URL редиректу без кодування — Tomcat визнає такий {@code Location}
+     * невалідним і просто відкидає заголовок (302 без Location, порожній
+     * екран у браузері, дію при цьому вже виконано). MockMvc сам по собі
+     * не проганяє відповідь через реальний сервлет-контейнер (тому цей
+     * баг не впіймали інтеграційні тести до нього) — тут перевіряємо
+     * інваріант напряму: значення {@code Location} має складатись лише з
+     * printable ASCII, інакше жоден сервлет-контейнер його не прийме.
+     */
+    @Test
+    void redirectAfterDraftAddIsAsciiSafe() throws Exception {
+        MvcResult result = mockMvc.perform(post("/exchange/draft/add").with(user("kulinich").roles("VIEWER")).with(csrf())
+                        .param("counterpart", "Журавльова К.")
+                        .param("myDate", MONTH.atDay(5).toString())
+                        .param("theirDate", MONTH.atDay(9).toString()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        String location = result.getResponse().getRedirectedUrl();
+        assertThat(location).isNotNull();
+        assertThat(location).matches("^[\\x20-\\x7E]*$");
+        assertThat(location).contains("counterpart=%D0%96");
+
+        // прибрати за собою — тестовий клас ділить один @TempDir (і тому й
+        // DutyExchangeDraftStore) на всі методи; інакше цей запис лишиться
+        // в чернетці "kulinich" і задвоїть крок 5↔9 в fullFlowProposeAcceptApprove
+        mockMvc.perform(post("/exchange/draft/remove").with(user("kulinich").roles("VIEWER")).with(csrf())
+                .param("index", "0"));
     }
 
     @Test
