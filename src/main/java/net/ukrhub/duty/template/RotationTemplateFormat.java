@@ -30,9 +30,15 @@ import java.util.List;
  */
 public final class RotationTemplateFormat {
 
+    /** Лише статичні методи. */
     private RotationTemplateFormat() {
     }
 
+    /**
+     * Розбирає файл шаблону.
+     *
+     * @param id номер, узятий з імені файлу — у самому вмісті його нема
+     */
     public static RotationTemplate parse(int id, String content) {
         String name = "";
         List<String> rows = new ArrayList<>();
@@ -59,6 +65,7 @@ public final class RotationTemplateFormat {
         return new RotationTemplate(id, name, rows);
     }
 
+    /** Записує шаблон у той самий формат, що читає {@link #parse}. */
     public static String serialize(RotationTemplate template) {
         StringBuilder sb = new StringBuilder();
         sb.append("[ Name ]\n");

@@ -36,9 +36,14 @@ final class CalDavSyncState {
 
     private static final DateTimeFormatter FILE_NAME = DateTimeFormatter.ofPattern("yyyyMM");
 
+    /** Лише статичні методи. */
     private CalDavSyncState() {
     }
 
+    /**
+     * Стан місяця: UID → хеш тіла. Відсутній файл — порожня мапа: усе
+     * опублікується як нове, що безпечно (PUT ідемпотентний за UID).
+     */
     static Map<String, String> read(Path stateDir, YearMonth month) {
         Path file = fileFor(stateDir, month);
         if (!Files.exists(file)) {
@@ -61,6 +66,7 @@ final class CalDavSyncState {
         }
     }
 
+    /** Перезаписує стан місяця цілком — часткового оновлення тут не буває. */
     static void write(Path stateDir, YearMonth month, Map<String, String> uidToHash) {
         Path file = fileFor(stateDir, month);
         try {
@@ -75,6 +81,7 @@ final class CalDavSyncState {
         }
     }
 
+    /** Один файл на місяць: {@code published-YYYYMM.txt}. */
     private static Path fileFor(Path stateDir, YearMonth month) {
         return stateDir.resolve("published-" + FILE_NAME.format(month) + ".txt");
     }

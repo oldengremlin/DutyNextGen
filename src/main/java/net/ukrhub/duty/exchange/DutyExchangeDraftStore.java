@@ -38,19 +38,33 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class DutyExchangeDraftStore {
 
+    /**
+     * Крок чернетки: сам обмін плюс колега, до якого він адресований —
+     * у відправленій пропозиції колега вже спільний на всі кроки, а тут ще ні.
+     *
+     * @param counterpartName П.І.Б. колеги, якому адресований саме цей крок
+     * @param step            пара дат і тип обміну
+     */
     public record DraftStep(String counterpartName, DutyExchangeStep step) {
     }
 
     private final Map<String, List<DraftStep>> draftsByUsername = new ConcurrentHashMap<>();
 
+    /** Чернетка користувача; її може не бути — це порожній список, а не {@code null}. */
     public List<DraftStep> get(String username) {
         return draftsByUsername.getOrDefault(username, List.of());
     }
 
+    /** Додає крок у кінець чернетки, створюючи її за потреби. */
     public void add(String username, DraftStep step) {
         draftsByUsername.computeIfAbsent(username, k -> new CopyOnWriteArrayList<>()).add(step);
     }
 
+    /**
+     * Прибирає крок за позицією. Позиція поза межами — мовчки нічого:
+     * індекс приходить із форми, і повторне надсилання тієї самої сторінки
+     * («Назад» у браузері) не має давати помилку.
+     */
     public void removeAt(String username, int index) {
         List<DraftStep> steps = draftsByUsername.get(username);
         if (steps != null && index >= 0 && index < steps.size()) {
@@ -58,6 +72,7 @@ public class DutyExchangeDraftStore {
         }
     }
 
+    /** Спорожнює чернетку — після успішної відправки пропозицій. */
     public void clear(String username) {
         draftsByUsername.remove(username);
     }

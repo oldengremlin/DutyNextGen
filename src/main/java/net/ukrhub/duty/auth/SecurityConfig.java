@@ -78,6 +78,11 @@ public class SecurityConfig {
             + "img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; "
             + "frame-ancestors 'none'";
 
+    /**
+     * Ланцюжок фільтрів: заголовки безпеки, правила доступу за URL, Basic Auth
+     * і вихід. CSRF лишається типово увімкненим — усі форми шаблонів явно
+     * передають токен.
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -135,6 +140,11 @@ public class SecurityConfig {
                 """);
     }
 
+    /**
+     * BCrypt зі стандартною складністю — той самий кодувальник, яким CLI
+     * ({@link UserAdminCli}) створює перший обліковий запис, інакше
+     * бутстрапний користувач не зміг би увійти.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

@@ -60,6 +60,12 @@ public class UserAdminController {
     private final DutyScheduleRepository scheduleRepository;
     private final CalDavSyncService calDavSyncService;
 
+    /**
+     * Репозиторій графіка й CalDAV-сервіс потрібні не для керування
+     * користувачами як таких, а для самої сторінки: список імен інженерів для
+     * випадаючого списку прив'язки й кнопка «Синхронізувати зараз», яка живе
+     * на тій самій сторінці адміністрування.
+     */
     public UserAdminController(DutyProperties properties, PasswordEncoder passwordEncoder,
                                 DutyScheduleRepository scheduleRepository, CalDavSyncService calDavSyncService) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
@@ -68,10 +74,21 @@ public class UserAdminController {
         this.calDavSyncService = calDavSyncService;
     }
 
-    /** DTO для шаблону — {@code UserStore.StoredUser} пакетно-приватний навмисно. */
+    /**
+     * DTO для шаблону — {@code UserStore.StoredUser} пакетно-приватний навмисно.
+     *
+     * @param username       ім'я облікового запису
+     * @param role           його роль
+     * @param linkedEngineer П.І.Б. прив'язаного інженера, або {@code null}
+     */
     public record UserRow(String username, Role role, String linkedEngineer) {
     }
 
+    /**
+     * Сторінка керування обліковими записами. {@code TreeMap} — щоб порядок
+     * рядків не залежав від порядку записів у файлі й не стрибав після кожного
+     * збереження.
+     */
     @GetMapping("/admin/users")
     public String list(Model model) {
         Map<String, UserStore.StoredUser> users = new TreeMap<>(UserStore.readUsers(usersFile));
@@ -92,6 +109,17 @@ public class UserAdminController {
                 .orElse(List.of());
     }
 
+    /**
+     * Створює обліковий запис.
+     *
+     * @param username       ім'я нового користувача
+     * @param password       пароль (не менше {@link #MIN_PASSWORD_LENGTH} символів)
+     * @param confirm        те саме ще раз — захист від опечатки
+     * @param role           роль нового користувача
+     * @param linkedEngineer П.І.Б. інженера для прив'язки, або порожньо
+     * @throws ResponseStatusException 400 — порожнє ім'я, неприйнятний пароль
+     *         чи роздільник полів у полі; 409 — такий користувач уже є
+     */
     @PostMapping("/admin/users/create")
     public String create(@RequestParam String username, @RequestParam String password,
                           @RequestParam String confirm, @RequestParam Role role,
@@ -140,6 +168,10 @@ public class UserAdminController {
         }
     }
 
+    /**
+     * Прив'язує (чи відв'язує — порожнім значенням) користувача до інженера.
+     * Пароль і роль лишаються як були.
+     */
     @PostMapping("/admin/users/{username}/link")
     public String link(@PathVariable String username, @RequestParam(required = false) String linkedEngineer) {
         UserStore.StoredUser existing = requireUser(username);
@@ -149,10 +181,15 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    /** Порожній вибір у формі («— не прив'язано —») — це {@code null} у файлі, а не порожній рядок. */
     private static String normalizeLink(String linkedEngineer) {
         return (linkedEngineer == null || linkedEngineer.isBlank()) ? null : linkedEngineer.strip();
     }
 
+    /**
+     * Змінює роль. Собі — заборонено (див. коментар у тілі), останнього
+     * адміністратора понизити не можна.
+     */
     @PostMapping("/admin/users/{username}/role")
     public String changeRole(@PathVariable String username, @RequestParam Role role, Principal principal) {
         UserStore.StoredUser existing = requireUser(username);
@@ -173,6 +210,10 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    /**
+     * Скидає пароль, зберігаючи роль і прив'язку. Старий пароль не питається:
+     * це дія адміністратора над чужим записом, а не зміна власного.
+     */
     @PostMapping("/admin/users/{username}/password")
     public String resetPassword(@PathVariable String username, @RequestParam String password,
                                  @RequestParam String confirm) {
@@ -182,6 +223,7 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    /** Видаляє обліковий запис. Себе — заборонено, останнього адміністратора — теж. */
     @PostMapping("/admin/users/{username}/delete")
     public String delete(@PathVariable String username, Principal principal) {
         UserStore.StoredUser existing = requireUser(username);
@@ -199,6 +241,11 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    /**
+     * Наявний користувач за іменем.
+     *
+     * @throws ResponseStatusException 404, якщо такого нема (запит по URL в обхід форми)
+     */
     private UserStore.StoredUser requireUser(String username) {
         UserStore.StoredUser user = UserStore.readUsers(usersFile).get(username);
         if (user == null) {

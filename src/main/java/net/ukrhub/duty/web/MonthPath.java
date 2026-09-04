@@ -27,9 +27,16 @@ final class MonthPath {
 
     private static final DateTimeFormatter YM = DateTimeFormatter.ofPattern("yyyyMM");
 
+    /** Лише статичні методи. */
     private MonthPath() {
     }
 
+    /**
+     * Місяць зі шляху.
+     *
+     * @throws ResponseStatusException 404 (а не 400) для нерозбірного значення:
+     *         з погляду користувача такої сторінки просто нема
+     */
     static YearMonth parse(String ym) {
         try {
             return YearMonth.parse(ym, YM);
@@ -39,6 +46,7 @@ final class MonthPath {
         }
     }
 
+    /** Місяць у вигляді {@code YYYYMM} — і для URL, і для імені файлу. */
     static String format(YearMonth month) {
         return YM.format(month);
     }

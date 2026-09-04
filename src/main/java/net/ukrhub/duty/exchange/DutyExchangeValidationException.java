@@ -18,6 +18,7 @@ package net.ukrhub.duty.exchange;
 /** Пропозиція обміну (чи крок у ній) порушує одне з правил обміну — повідомлення призначене для показу користувачу як є. */
 public class DutyExchangeValidationException extends RuntimeException {
 
+    /** @param message причина українською — показується користувачу як є */
     public DutyExchangeValidationException(String message) {
         super(message);
     }

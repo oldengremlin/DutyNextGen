@@ -52,6 +52,10 @@ public class RotationTemplateRepository {
     private final Path templatesDir;
     private final GitCommitService gitCommitService;
 
+    /**
+     * Каталог шаблонів — окремий git-репозиторій журналу (свій, якщо це
+     * окремий том), той самий {@link GitCommitService}, що й для графіка.
+     */
     public RotationTemplateRepository(DutyProperties properties, GitCommitService gitCommitService) {
         this.templatesDir = properties.templatesDirPath();
         this.gitCommitService = gitCommitService;
@@ -81,6 +85,10 @@ public class RotationTemplateRepository {
         }
     }
 
+    /**
+     * Шаблон за номером, або порожньо — і коли файлу нема, і коли він
+     * пошкоджений (див. коментар у тілі).
+     */
     public Optional<RotationTemplate> find(int id) {
         Path file = fileFor(id);
         if (!Files.exists(file)) {
@@ -103,6 +111,7 @@ public class RotationTemplateRepository {
         }
     }
 
+    /** Записує файл шаблону й комітить його — так само, як і графік. */
     public void save(RotationTemplate template, String commitMessage, String authorName, String authorEmail) {
         Path file = fileFor(template.id());
         String content = RotationTemplateFormat.serialize(template);
@@ -115,6 +124,11 @@ public class RotationTemplateRepository {
         gitCommitService.commit(templatesDir, file, commitMessage, authorName, authorEmail);
     }
 
+    /**
+     * Видаляє шаблон одним комітом. Наявні місяці з цим {@code [ Tid ]}
+     * лишаються як є — фонова генерація просто пропустить наступний місяць із
+     * поясненням у лог.
+     */
     public void delete(int id, String commitMessage, String authorName, String authorEmail) {
         gitCommitService.delete(templatesDir, List.of(fileFor(id)), commitMessage, authorName, authorEmail);
     }
@@ -140,6 +154,7 @@ public class RotationTemplateRepository {
         }
     }
 
+    /** Ім'я файлу — сам номер шаблону (не назва: вільний текст користувача ненадійний як ім'я файлу). */
     private Path fileFor(int id) {
         return templatesDir.resolve(String.valueOf(id));
     }

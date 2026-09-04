@@ -20,9 +20,17 @@ import org.springframework.security.core.Authentication;
 /** Перевірка ролі поточного користувача — там, де URL-матчер у {@link SecurityConfig} не покриває деталі. */
 public final class RoleCheck {
 
+    /** Лише статичні методи. */
     private RoleCheck() {
     }
 
+    /**
+     * Чи має поточний користувач саме цю роль. Ролі не ієрархічні: адміністратор
+     * не «має» ролі редактора, тож перевірки на кілька ролей робляться явним
+     * або ({@code ScheduleController.canEdit}).
+     *
+     * @param authentication контекст запиту; {@code null} (неавтентифікований) — завжди {@code false}
+     */
     public static boolean has(Authentication authentication, Role role) {
         if (authentication == null) {
             return false;

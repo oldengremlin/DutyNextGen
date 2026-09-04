@@ -41,9 +41,411 @@
 - Git (зовнішній процес через `ProcessBuilder`) — внутрішня історія змін
 - Без бази даних: дані — текстові файли в `data/duty/`, як і раніше
 
+## Архітектура
+
+### Загальний потік виконання
+
+Що відбувається від натискання кнопки до запису на диск. Ключове: **git
+викликається самим застосунком**, а не людиною — команда ніколи не робить
+`checkout`/`commit` руками, на відміну від застарілого CVS-процесу.
+
+```mermaid
+flowchart TB
+    subgraph browser["Браузер"]
+        U["Черговий / Редактор / Адміністратор"]
+    end
+
+    subgraph app["Duty NextGen (Spring Boot)"]
+        SEC["SecurityConfig<br/>Basic Auth, ролі, CSRF, заголовки"]
+
+        subgraph web["web — контролери"]
+            C1["ScheduleController<br/>перегляд"]
+            C2["ScheduleEditController<br/>позначки, ростер"]
+            C3["ScheduleGenerationController<br/>майстер генерації"]
+            C4["DutyExchangeController<br/>обмін"]
+            C5["ScheduleHistoryController<br/>журнал змін"]
+            C6["RotationTemplateController<br/>шаблони"]
+        end
+
+        subgraph logic["Логіка"]
+            GEN["DutyScheduleGenerator<br/>порт tds.pl"]
+            EXC["DutyExchangeService<br/>правила обміну"]
+            ICS["DutyIcsGenerator<br/>порт duty2ics.pl"]
+        end
+
+        subgraph repo["Сховища — файл + коміт"]
+            R1["DutyScheduleRepository"]
+            R2["RotationTemplateRepository"]
+            R3["DutyExchangeRepository"]
+            AUTH["UserStore<br/>users.txt, поза git"]
+        end
+
+        GIT["GitCommitService<br/>ProcessBuilder → git"]
+
+        subgraph bg["Фонові задачі"]
+            S1["ScheduleGenerationScheduler<br/>щодоби 03:00"]
+            S2["CalDavSyncScheduler<br/>кожні 5 хв"]
+        end
+        SYNC["CalDavSyncService"]
+    end
+
+    subgraph disk["Диск (зовнішні томи)"]
+        D1[("data/duty/YYYYMM")]
+        D2[("data/templates/&lt;id&gt;")]
+        D3[("data/exchanges/&lt;id&gt;")]
+        D4[("config/users.txt")]
+    end
+
+    DAV["CalDAV / Baikal"]
+
+    U -->|HTTPS через nginx| SEC
+    SEC --> C1 & C2 & C3 & C4 & C5 & C6
+    SEC -.перевіряє.-> AUTH
+
+    C1 --> R1
+    C2 --> R1
+    C3 --> GEN --> R1
+    C3 --> R2
+    C6 --> R2
+    C4 --> EXC
+    C5 --> GIT
+
+    EXC --> R3
+    EXC -->|обидва місяці одним комітом| GIT
+
+    R1 & R2 & R3 --> GIT
+    AUTH --> D4
+    GIT --> D1 & D2 & D3
+
+    S1 --> GEN
+    S2 --> SYNC --> ICS
+    SYNC --> R1
+    SYNC -->|PUT / DELETE| DAV
+```
+
+Три речі, які варто прочитати з діаграми:
+
+- **Кожне сховище пише через `GitCommitService`.** Виняток один —
+  `UserStore`: облікові записи це секрети, а не дані чергувань, тож вони
+  свідомо поза git-історією графіка.
+- **Обмін чергуваннями йде в `GitCommitService` напряму**, а не через
+  репозиторій графіка: пропозиція може зачепити два різні місячні файли, і
+  вони мусять лягти одним комітом, інакше обмін лишиться застосованим
+  наполовину.
+- **Фонові задачі не мають власної логіки** — вони викликають рівно ті
+  самі `DutyScheduleGenerator` і `CalDavSyncService`, що й кнопки в
+  інтерфейсі. Кнопка «Синхронізувати зараз» — це той самий метод, просто
+  негайно.
+
+### Алгоритм роботи: генерація наступного місяця
+
+Порт ротаційного алгоритму `tds.pl`, узагальнений на довільний шаблон
+(K слотів замість жорстко зашитих двох). Найтонше місце — **продовження
+фази**: шаблон треба «приставити» до графіка саме там, де ротація
+зупинилась, а зупинилась вона там, де її залишили живі люди (чергові могли
+самі помінятися днями всередині місяця), а не там, де показував би
+внутрішній лічильник.
+
+```mermaid
+flowchart TB
+    START(["Згенерувати наступний місяць<br/>від YYYYMM"]) --> EXISTS{"Наступний місяць<br/>уже існує?"}
+    EXISTS -->|так| STOP1["Відмова: спершу видали його,<br/>щоб не затерти ручні правки"]
+    EXISTS -->|ні| K["K = скільки в місяці чергових<br/>(без «лише робочі дні»)"]
+
+    K --> FIND{"Скільки шаблонів<br/>розраховано на K?"}
+    FIND -->|нуль| STOP2["Відмова: створи шаблон<br/>на /admin/templates"]
+    FIND -->|кілька| WIZ1["Крок 1: який шаблон?<br/>(з наочним прев'ю)"]
+    FIND -->|один| PHASE
+
+    WIZ1 --> WIZ2["Крок 2: з якого дня періоду почати?<br/>(прев'ю кожного варіанту)"]
+    WIZ2 --> OFFSET["generateFromOffset:<br/>точний зсув, без пошуку"]
+
+    PHASE["generateNext: шукаємо фазу"] --> TAIL{"Хвіст [ LastDayN ]<br/>збігається з шаблоном?"}
+    TAIL -->|ні| WIZ2
+    TAIL -->|так| OFFSET
+
+    OFFSET --> LOOP["День за днем нового місяця:<br/>позначка зі стовпця шаблону"]
+    LOOP --> WEEKEND["Вихідний → W стає «-»<br/>(календарне правило)"]
+    WEEKEND --> MONDAY["Чергував у сб/нд → у пн «-»<br/>(правило за вмістом, не за календарем)"]
+    MONDAY --> NEWTAIL["Новий хвіст [ LastDayN ]:<br/>СИРІ значення шаблону, без правок вище"]
+    NEWTAIL --> SAVE["Записати файл + git-коміт<br/>з [ Tid ] застосованого шаблону"]
+    SAVE --> DONE(["Готово"])
+```
+
+Чому хвіст `[ LastDayN ]` пишеться **сирими** значеннями шаблону, а не тим,
+що показано користувачу: він потрібен лише наступній генерації, щоб знайти,
+з якого місця продовжувати. Якби туди потрапили вже виправлені позначки
+(скасований понеділок після чергування у неділю), пошук фази наступного
+місяця просто не знайшов би такого поєднання в шаблоні.
+
+Дерево рішень вибору шаблону й приклади — `docs/rotation-templates.md`.
+
+### Алгоритм роботи: обмін чергуваннями
+
+Життєвий цикл пропозиції. Стан зберігається у файлі, кожен перехід — окремий
+git-коміт з автором тієї дії; окремих полів «хто і коли» в файлі нема
+навмисно, це вже є в журналі.
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: ініціатор надіслав<br/>(правила перевірено)
+    PENDING --> ACCEPTED: колега погодився
+    PENDING --> DECLINED: колега відмовив
+    ACCEPTED --> APPROVED: адміністратор затвердив<br/>→ зміни йдуть у графік
+    ACCEPTED --> REJECTED: адміністратор відхилив
+
+    PENDING --> STALE_CANCELLED: графік змінився,<br/>доки пропозиція чекала
+    ACCEPTED --> STALE_CANCELLED: те саме
+
+    DECLINED --> [*]: «Зрозуміло» — запис видалено
+    APPROVED --> [*]: «Зрозуміло»
+    REJECTED --> [*]: «Зрозуміло»
+    STALE_CANCELLED --> [*]: «Зрозуміло»
+
+    note right of ACCEPTED
+        Перед КОЖНИМ переходом, що щось
+        міняє, пропозиція перевіряється
+        проти поточного графіка наново:
+        вона живе між запитами, іноді днями.
+    end note
+```
+
+### Структура класів
+
+Основні типи й зв'язки між ними. `domain` — незмінні `record`-и без жодних
+залежностей (ні на Spring, ні на файли); усе, що знає про диск і git, лежить
+шаром нижче.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class DutySchedule {
+        <<record>>
+        +YearMonth month
+        +List~Engineer~ engineers
+        +List~DutyDay~ days
+        +List~Map~ lastDays
+        +Integer tid
+        +engineer(number) Engineer
+    }
+    class DutyDay {
+        <<record>>
+        +int day
+        +DayOfWeek dow
+        +boolean holiday
+        +markFor(number) DutyMark
+        +isWeekend() boolean
+    }
+    class Engineer {
+        <<record>>
+        +int number
+        +String name
+        +boolean onlyWorkdays
+    }
+    class DutyMark {
+        <<enumeration>>
+        DUTY WORK VACATION SICK SESSION OFF
+        +code() char
+        +displayLetter() String
+    }
+    class RotationTemplate {
+        <<record>>
+        +int id
+        +String name
+        +List~String~ rows
+        +slots() int
+        +period() int
+        +markAt(slot, day) DutyMark
+    }
+    class DutyExchangeProposal {
+        <<record>>
+        +int id
+        +String initiatorName
+        +String counterpartName
+        +List~DutyExchangeStep~ steps
+        +DutyExchangeStatus status
+        +withStatus(s) DutyExchangeProposal
+    }
+    class DutyExchangeStep {
+        <<record>>
+        +DutyMark type
+        +LocalDate initiatorDate
+        +LocalDate counterpartDate
+    }
+
+    DutySchedule *-- DutyDay
+    DutySchedule *-- Engineer
+    DutyDay ..> DutyMark
+    RotationTemplate ..> DutyMark
+    DutyExchangeProposal *-- DutyExchangeStep
+    DutyExchangeStep ..> DutyMark
+
+    class DutyScheduleRepository {
+        +find(month) Optional
+        +save(schedule, msg, author, email)
+        +delete(months, msg, author, email)
+        +existingMonthsFrom(from) List
+    }
+    class RotationTemplateRepository {
+        +findAll() List
+        +find(id) Optional
+        +save(template, ...)
+        +nextId() int
+    }
+    class DutyExchangeRepository {
+        +findAll() List
+        +find(id) Optional
+        +save(proposal, ...)
+        +delete(id, ...)
+    }
+    class GitCommitService {
+        +commit(dir, files, msg, author, email)
+        +delete(dir, files, ...)
+        +history(dir, file) List~CommitInfo~
+    }
+
+    DutyScheduleRepository --> GitCommitService
+    RotationTemplateRepository --> GitCommitService
+    DutyExchangeRepository --> GitCommitService
+    DutyScheduleRepository ..> DutySchedule
+    RotationTemplateRepository ..> RotationTemplate
+    DutyExchangeRepository ..> DutyExchangeProposal
+
+    class DutyScheduleGenerator {
+        <<utility>>
+        +generateNext(from, template) DutySchedule
+        +generateFromOffset(from, template, offset) DutySchedule
+    }
+    class DutyExchangeService {
+        +propose(...) DutyExchangeProposal
+        +accept(id, user, engineer) DutyExchangeProposal
+        +approve(id, admin) DutyExchangeProposal
+        +datesFor(engineer) List
+        +attentionCountFor(engineer, isAdmin) int
+    }
+    class CalDavSyncService {
+        +syncRecentMonths()
+        +configured() boolean
+    }
+
+    DutyScheduleGenerator ..> DutySchedule
+    DutyScheduleGenerator ..> RotationTemplate
+    DutyExchangeService --> DutyExchangeRepository
+    DutyExchangeService --> DutyScheduleRepository
+    DutyExchangeService --> GitCommitService
+    CalDavSyncService --> DutyScheduleRepository
+
+    class UserStore {
+        <<utility>>
+        +readUsers(file) Map
+        +writeUser(file, ...)
+        +deleteUser(file, username)
+    }
+    class Role {
+        <<enumeration>>
+        VIEWER EDITOR ADMIN
+    }
+    UserStore ..> Role
+    note for UserStore "Єдине сховище поза git:<br/>users.txt це секрети,<br/>а не дані чергувань"
+```
+
+## Структура проєкту
+
+```
+DutyNextGen/
+├── pom.xml                  Maven: залежності, версія (джерело правди), фільтрація application.yml
+├── Dockerfile               Збірка образу; git, UTF-8-локаль, TZ, точки монтування /data і /config
+├── dbuild                   Скрипт збірки й перезапуску контейнера (аналог dbuild застарілого проєкту)
+├── README.md                Цей файл
+├── CHANGELOG.md             Історія версій
+├── CLAUDE.md                Правила розробки проєкту
+├── LICENSE                  Apache License 2.0
+├── docs/
+│   └── rotation-templates.md    Шаблони ротації: модель, дерево рішень генерації, зміна кількості чергових
+└── src/
+    ├── main/java/net/ukrhub/duty/
+    │   ├── DutyNextGenApplication.java   Точка входу; CLI-режим add-user до підняття Spring
+    │   ├── config/
+    │   │   └── DutyProperties.java       Каталоги даних і реквізити CalDAV з application.yml
+    │   ├── domain/                       Моделі предметної області — незмінні record-и, без залежностей
+    │   │   ├── DutySchedule.java             Графік місяця: ростер, дні, хвіст ротації, id шаблону
+    │   │   ├── DutyDay.java                  Один день: число, день тижня, свято, позначки по людях
+    │   │   ├── DutyMark.java                 Позначка D/W/O/I/S/- та її вигляд в інтерфейсі
+    │   │   ├── Engineer.java                 Адміністратор: номер колонки, П.І.Б., «лише робочі дні»
+    │   │   ├── RotationTemplate.java         Шаблон ротації: рядок на слот, символ на день періоду
+    │   │   ├── DutyExchangeProposal.java     Пропозиція обміну: сторони, кроки, стан
+    │   │   ├── DutyExchangeStep.java         Один елементарний обмін: тип і пара дат
+    │   │   └── DutyExchangeStatus.java       Стан пропозиції та його назва для інтерфейсу
+    │   ├── schedule/                     Формат, сховище й генератор графіка
+    │   │   ├── DutyScheduleFormat.java       Читання/запис успадкованого текстового формату
+    │   │   ├── DutyScheduleRepository.java   Файл місяця + git-коміт на кожне збереження
+    │   │   ├── DutyScheduleGenerator.java    Порт ротаційного алгоритму tds.pl на довільний шаблон
+    │   │   ├── ScheduleGenerationScheduler.java  Фонова генерація наступного місяця (щодоби о 03:00)
+    │   │   └── ScheduleGenerationException.java  Причина невдалої генерації — текст для адміністратора
+    │   ├── template/                     Шаблони ротації
+    │   │   ├── RotationTemplateFormat.java       Читання/запис [ Name ] / [ Pattern ]
+    │   │   └── RotationTemplateRepository.java   Файл шаблону + git-коміт
+    │   ├── exchange/                     Обмін чергуваннями
+    │   │   ├── DutyExchangeService.java          Уся бізнес-логіка: правила, переходи станів, застосування
+    │   │   ├── DutyExchangeRepository.java       Файл пропозиції + git-коміт
+    │   │   ├── DutyExchangeFormat.java           Читання/запис формату пропозиції
+    │   │   ├── DutyExchangeDraftStore.java       Чернетка конструктора — у пам'яті, не версіюється
+    │   │   ├── DutySwappableDate.java            Дата, доступна до обміну (обчислюється щоразу наново)
+    │   │   └── DutyExchangeValidationException.java  Порушення правила обміну — текст для користувача
+    │   ├── git/                          Внутрішній журнал змін
+    │   │   ├── GitCommitService.java             Виклик git як зовнішнього процесу: commit/delete/history
+    │   │   └── CommitInfo.java                   Один запис історії: хто/коли/що + діфф
+    │   ├── caldav/                       Синхронізація з Baikal
+    │   │   ├── CalDavSyncService.java            Порівняння за хешем, PUT змінених, DELETE зниклих
+    │   │   ├── CalDavSyncScheduler.java          Фоновий прогін кожні 5 хвилин
+    │   │   ├── CalDavClient.java                 PUT/DELETE ICS через HttpClient
+    │   │   ├── DigestAuth.java                   Заголовок Authorization: Digest (RFC 2617) або Basic
+    │   │   ├── CalDavSyncState.java              Стан синку: UID → хеш, файл на місяць
+    │   │   ├── CaldavConfFile.java               duty-caldav.conf — той самий формат, що й у оригіналу
+    │   │   ├── DutyIcsGenerator.java             Порт duty2ics.pl: графік → список подій
+    │   │   └── IcsEvent.java                     Одна подія: UID, дата, тіло VCALENDAR
+    │   ├── auth/                         Автентифікація й облікові записи
+    │   │   ├── SecurityConfig.java               Basic Auth, правила доступу за URL, заголовки безпеки
+    │   │   ├── FileUserDetailsService.java       Вхід за users.txt (читається на кожен запит)
+    │   │   ├── UserStore.java                    Читання/запис users.txt, права rw-------, валідація полів
+    │   │   ├── UserAdminController.java          /admin/users — керування записами через веб
+    │   │   ├── UserAdminCli.java                 add-user — перший (бутстрапний) адміністратор
+    │   │   ├── UserLinkService.java              Прив'язка «користувач → інженер», перенос при перейменуванні
+    │   │   ├── Role.java                         VIEWER / EDITOR / ADMIN
+    │   │   └── RoleCheck.java                    Перевірка ролі там, де URL-матчер не розрізняє поля
+    │   └── web/                          Контролери й допоміжне для шаблонів
+    │       ├── ScheduleController.java           GET /schedule/YYYYMM — перегляд
+    │       ├── ScheduleEditController.java       Редагування позначок, П.І.Б., ростеру
+    │       ├── ScheduleGenerationController.java Майстер генерації наступного місяця й видалення
+    │       ├── ScheduleHistoryController.java    /history — git-журнал з кольоровим діффом
+    │       ├── DutyExchangeController.java       /exchange — конструктор і журнал пропозицій
+    │       ├── DutyExchangeNoticeAdvice.java     Бейдж «потребує уваги» на кожній сторінці
+    │       ├── RotationTemplateController.java   /admin/templates — CRUD шаблонів
+    │       ├── CalDavSyncController.java         Кнопка «Синхронізувати зараз»
+    │       ├── MonthPath.java                    Розбір/форматування YYYYMM у шляхах
+    │       ├── DiffLine.java                     Рядок діффа з CSS-класом
+    │       └── UkrainianCalendar.java            Українські назви місяців і днів тижня
+    ├── main/resources/
+    │   ├── application.yml               Порт, каталоги, CalDAV, версія (Maven-фільтрація)
+    │   ├── templates/                    Thymeleaf: schedule, schedule-edit, schedule-history,
+    │   │                                 exchange, admin-users, templates-list, template-new,
+    │   │                                 template-edit, schedule-generate-templates/-offset
+    │   └── static/
+    │       ├── css/schedule.css          Стилі всіх сторінок, разом із друком
+    │       └── js/                       copy-for-email.js (HTML-фрагмент у буфер), table-hover.js
+    └── test/java/net/ukrhub/duty/        Дзеркалить структуру main; 181 тест
+        └── ...                           Плюс FakeCalDavServer (Digest-сервер у пам'яті)
+            і UserStoreTestHelper (доступ до пакетно-приватного UserStore з інших пакетів)
+```
+
+Каталоги даних (`data/duty`, `data/templates`, `data/exchanges`, `config`) у
+репозиторії не лежать — вони створюються при роботі й монтуються ззовні;
+дивись розділ «Дані та історія».
+
 ## Статус
 
-Версія — **1.0.0** ([Semantic Versioning](https://semver.org/lang/uk/)),
+Версіонування — [Semantic Versioning](https://semver.org/lang/uk/),
 джерело правди — `pom.xml`. Та сама версія завжди видна у футері сторінки
 графіка (`http://localhost:8080/schedule/YYYYMM`) — підставляється туди
 Maven-фільтрацією при збірці, вручну синхронізувати нічого не треба. Дивись

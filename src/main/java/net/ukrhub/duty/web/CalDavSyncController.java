@@ -30,10 +30,16 @@ public class CalDavSyncController {
 
     private final CalDavSyncService syncService;
 
+    /** Уся робота — в сервісі; контролер лише дає кнопку. */
     public CalDavSyncController(CalDavSyncService syncService) {
         this.syncService = syncService;
     }
 
+    /**
+     * Синхронно виконує той самий прогін, що й фоновий планувальник. Синхронно
+     * навмисно: адміністратор натиснув «Синхронізувати зараз» саме щоб побачити
+     * результат, а не отримати обіцянку.
+     */
     @PostMapping("/admin/caldav/sync-now")
     public String syncNow(RedirectAttributes redirectAttributes) {
         syncService.syncRecentMonths();

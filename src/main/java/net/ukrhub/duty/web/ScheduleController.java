@@ -39,17 +39,27 @@ public class ScheduleController {
     private final DutyScheduleRepository repository;
     private final String appVersion;
 
+    /**
+     * @param appVersion версія з {@code pom.xml} через Maven-фільтрацію
+     *        {@code application.yml} — показується у футері сторінки
+     */
     public ScheduleController(DutyScheduleRepository repository,
                                @Value("${app.version}") String appVersion) {
         this.repository = repository;
         this.appVersion = appVersion;
     }
 
+    /** Корінь застосунку веде на поточний місяць. */
     @GetMapping("/")
     public String home() {
         return "redirect:/schedule/" + MonthPath.format(YearMonth.now());
     }
 
+    /**
+     * Сторінка перегляду. Відсутній графік — не помилка, а порожня сторінка з
+     * навігацією: місяць може бути ще не згенерований, і користувач має мати
+     * змогу перейти на сусідній.
+     */
     @GetMapping("/schedule/{ym}")
     public String schedule(@PathVariable String ym, Model model, Authentication authentication) {
         YearMonth month = MonthPath.parse(ym);

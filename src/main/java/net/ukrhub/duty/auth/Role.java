@@ -40,6 +40,7 @@ public enum Role {
         this.displayName = displayName;
     }
 
+    /** Українська назва ролі для показу в інтерфейсі. */
     public String displayName() {
         return displayName;
     }

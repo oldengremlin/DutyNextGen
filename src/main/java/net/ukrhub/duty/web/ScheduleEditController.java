@@ -62,11 +62,21 @@ public class ScheduleEditController {
     private final DutyScheduleRepository repository;
     private final UserLinkService userLinkService;
 
+    /**
+     * {@link UserLinkService} — щоб перейменування П.І.Б. не розривало
+     * прив'язку користувача до цього інженера.
+     */
     public ScheduleEditController(DutyScheduleRepository repository, UserLinkService userLinkService) {
         this.repository = repository;
         this.userLinkService = userLinkService;
     }
 
+    /**
+     * Форма редагування наявного місяця.
+     *
+     * @throws ResponseStatusException 404, якщо місяць ще не згенеровано —
+     *         створювати порожній графік з нуля тут свідомо нема чим
+     */
     @GetMapping("/schedule/{ym}/edit")
     public String edit(@PathVariable String ym, Model model, Authentication authentication) {
         YearMonth month = MonthPath.parse(ym);
@@ -82,6 +92,15 @@ public class ScheduleEditController {
         return "schedule-edit";
     }
 
+    /**
+     * Зберігає всю форму одним комітом: позначки по днях, свята, а для
+     * адміністратора — ще й П.І.Б. та ознаку «лише робочі дні».
+     *
+     * @param params усі поля форми — їх кількість залежить від кількості днів і
+     *        адміністраторів у місяці, тож окремими параметрами їх не описати
+     * @return ту саму форму з переліком помилок, якщо валідація не пройшла;
+     *         інакше редирект на перегляд місяця
+     */
     @PostMapping("/schedule/{ym}/edit")
     public String save(@PathVariable String ym, @RequestParam Map<String, String> params, Principal principal,
                         Authentication authentication, Model model) {
@@ -165,6 +184,12 @@ public class ScheduleEditController {
         return errors;
     }
 
+    /**
+     * Додає адміністратора в ростер цього місяця — з «вихідним» на кожен день,
+     * доки хтось не проставить реальні позначки. Номер — наступний за
+     * максимальним; звільнені номери не перевикористовуються, щоб не
+     * плутати історію.
+     */
     @PostMapping("/schedule/{ym}/edit/add-engineer")
     public String addEngineer(@PathVariable String ym, @RequestParam String name,
                                @RequestParam(defaultValue = "false") boolean onlyWorkdays, Principal principal) {
@@ -204,6 +229,12 @@ public class ScheduleEditController {
         return "redirect:/schedule/" + ym + "/edit";
     }
 
+    /**
+     * Прибирає адміністратора з ростеру цього місяця разом з усіма його
+     * позначками. Інші місяці не зачіпаються.
+     *
+     * @throws ResponseStatusException 404, якщо такого номера в місяці нема
+     */
     @PostMapping("/schedule/{ym}/edit/remove-engineer")
     public String removeEngineer(@PathVariable String ym, @RequestParam int number, Principal principal) {
         YearMonth month = MonthPath.parse(ym);
@@ -245,6 +276,10 @@ public class ScheduleEditController {
         return "redirect:/schedule/" + ym + "/edit";
     }
 
+    /**
+     * Позначки одного дня з полів форми {@code mark_<день>_<номер>}; відсутнє
+     * поле — {@link DutyMark#OFF} (так браузер поводиться з невибраним значенням).
+     */
     private static Map<Integer, DutyMark> marksFor(DutyDay day, List<Engineer> engineers, Map<String, String> params) {
         Map<Integer, DutyMark> marks = new LinkedHashMap<>();
         for (Engineer e : engineers) {

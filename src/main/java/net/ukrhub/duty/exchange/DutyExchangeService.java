@@ -66,6 +66,11 @@ public class DutyExchangeService {
     private final DutyScheduleRepository scheduleRepository;
     private final GitCommitService gitCommitService;
 
+    /**
+     * {@link GitCommitService} — напряму, а не через репозиторій графіка:
+     * затвердження пропозиції може зачепити два різні місячні файли, і вони
+     * мають лягти ОДНИМ комітом, інакше обмін лишиться застосованим наполовину.
+     */
     public DutyExchangeService(DutyExchangeRepository exchangeRepository, DutyScheduleRepository scheduleRepository,
                                 GitCommitService gitCommitService) {
         this.exchangeRepository = exchangeRepository;
@@ -124,6 +129,11 @@ public class DutyExchangeService {
         return result;
     }
 
+    /**
+     * Усі пропозиції за участю цього інженера — байдуже, як ініціатора чи як
+     * колеги, і в будь-якому стані (журнал показує й завершені, доки їх не
+     * «визнали» кнопкою «Зрозуміло»).
+     */
     public List<DutyExchangeProposal> proposalsFor(String engineerName) {
         return exchangeRepository.findAll().stream()
                 .filter(p -> p.initiatorName().equals(engineerName) || p.counterpartName().equals(engineerName))
@@ -176,6 +186,13 @@ public class DutyExchangeService {
         return proposal.initiatorName().equals(engineerName) || proposal.counterpartName().equals(engineerName);
     }
 
+    /**
+     * Створює пропозицію в стані {@code PENDING}.
+     *
+     * @param initiatorUsername обліковий запис — окремо від П.І.Б., для авторства
+     *        git-коміту при подальшому застосуванні
+     * @throws DutyExchangeValidationException якщо хоч один крок порушує правила обміну
+     */
     public DutyExchangeProposal propose(String initiatorName, String initiatorUsername,
                                          String counterpartName, List<DutyExchangeStep> steps) {
         if (steps.isEmpty()) {
@@ -191,6 +208,11 @@ public class DutyExchangeService {
         return proposal;
     }
 
+    /**
+     * Колега погоджується: {@code PENDING} → {@code ACCEPTED}. Перед цим
+     * пропозиція перевіряється наново ({@link #checkpoint}) — графік міг
+     * змінитися, доки вона чекала.
+     */
     public DutyExchangeProposal accept(int id, String actingUsername, String actingEngineerName) {
         DutyExchangeProposal proposal = requireProposal(id);
         requireStatus(proposal, DutyExchangeStatus.PENDING);
@@ -206,6 +228,10 @@ public class DutyExchangeService {
         return accepted;
     }
 
+    /**
+     * Колега відмовляє: {@code PENDING} → {@code DECLINED}. Перевіряти графік
+     * тут нема сенсу — відмова однаково нічого в ньому не міняє.
+     */
     public DutyExchangeProposal decline(int id, String actingUsername, String actingEngineerName) {
         DutyExchangeProposal proposal = requireProposal(id);
         requireStatus(proposal, DutyExchangeStatus.PENDING);
@@ -217,6 +243,14 @@ public class DutyExchangeService {
         return declined;
     }
 
+    /**
+     * Адміністратор затверджує: {@code ACCEPTED} → {@code APPROVED} із
+     * застосуванням до графіка. Право на дію дає {@code SecurityConfig}
+     * (лише {@code ADMIN}), тому сторона тут не перевіряється.
+     *
+     * @throws DutyExchangeValidationException якщо пропозиція не в тому стані
+     *         або графік уже не дозволяє обмін
+     */
     public DutyExchangeProposal approve(int id, String adminUsername) {
         DutyExchangeProposal proposal = requireProposal(id);
         requireStatus(proposal, DutyExchangeStatus.ACCEPTED);
@@ -233,6 +267,7 @@ public class DutyExchangeService {
         return approved;
     }
 
+    /** Адміністратор відхиляє: {@code ACCEPTED} → {@code REJECTED}, графік не чіпається. */
     public DutyExchangeProposal reject(int id, String adminUsername) {
         DutyExchangeProposal proposal = requireProposal(id);
         requireStatus(proposal, DutyExchangeStatus.ACCEPTED);
@@ -266,6 +301,14 @@ public class DutyExchangeService {
         }
     }
 
+    /**
+     * Перевіряє пропозицію проти ПОТОЧНОГО графіка перед кожним переходом
+     * стану, який щось міняє. Пропозиція живе між запитами (іноді днями), і за
+     * цей час місяць могли перегенерувати, видалити чи просто переставити
+     * позначки — застосовувати її «наосліп» не можна.
+     *
+     * @return ту саму пропозицію, або вже збережену як {@code STALE_CANCELLED}
+     */
     private DutyExchangeProposal checkpoint(DutyExchangeProposal proposal) {
         if (isStillValid(proposal)) {
             return proposal;
@@ -277,6 +320,11 @@ public class DutyExchangeService {
         return cancelled;
     }
 
+    /**
+     * Чи ще застосовна пропозиція: усі згадані місяці на місці й усі кроки
+     * проходять ту саму перевірку, що й при створенні (себе саму при цьому не
+     * враховуючи — інакше вона б «блокувала» власні дати).
+     */
     private boolean isStillValid(DutyExchangeProposal proposal) {
         for (YearMonth month : proposal.referencedMonths()) {
             if (!scheduleRepository.exists(month)) {
@@ -291,6 +339,13 @@ public class DutyExchangeService {
         }
     }
 
+    /**
+     * Усі правила обміну для набору кроків одразу.
+     *
+     * @param excludeProposalId пропозиція, чиї власні дати не рахувати зайнятими
+     *        (перевірка пропозиції на саму себе), або {@code null} для нової
+     * @throws DutyExchangeValidationException на першому ж порушенні
+     */
     private void validateProposal(String initiatorName, String counterpartName, List<DutyExchangeStep> steps,
                                    Integer excludeProposalId) {
         if (initiatorName.equals(counterpartName)) {
@@ -308,6 +363,10 @@ public class DutyExchangeService {
         }
     }
 
+    /**
+     * Правила одного кроку: обидві дати в майбутньому, жодна не задіяна в
+     * іншій активній пропозиції, і обидві клітинки придатні до обміну.
+     */
     private void validateStep(String initiatorName, String counterpartName, DutyExchangeStep step,
                                Set<LocalDate> initiatorLocked, Set<LocalDate> counterpartLocked,
                                Map<YearMonth, DutySchedule> schedules) {
@@ -377,6 +436,12 @@ public class DutyExchangeService {
         return locked;
     }
 
+    /**
+     * Застосовує пропозицію до графіка: спершу міняє позначки в пам'яті по
+     * всіх зачеплених місяцях, потім записує їх і комітить ОДНИМ комітом —
+     * щоб обмін між двома різними місяцями не міг лишитись застосованим
+     * наполовину. Автор коміту — завжди ініціатор, а не той, хто затвердив.
+     */
     private void applyToSchedule(DutyExchangeProposal proposal) {
         Map<YearMonth, DutySchedule> working = new LinkedHashMap<>();
         for (DutyExchangeStep step : proposal.steps()) {
@@ -400,6 +465,10 @@ public class DutyExchangeService {
                 proposal.initiatorUsername(), proposal.initiatorUsername() + "@duty.local");
     }
 
+    /**
+     * Міняє місцями позначки двох інженерів на одну дату, накопичуючи змінені
+     * графіки у {@code working} — там же їх потім бере {@link #applyToSchedule} на запис.
+     */
     private void swapOnDate(Map<YearMonth, DutySchedule> working, LocalDate date, String initiatorName, String counterpartName) {
         YearMonth month = YearMonth.from(date);
         DutySchedule schedule = scheduleAt(working, month);
@@ -408,6 +477,10 @@ public class DutyExchangeService {
         working.put(month, withSwappedMarks(schedule, date.getDayOfMonth(), initiatorNumber, counterpartNumber));
     }
 
+    /**
+     * Копія графіка, у якій один день замінено на день зі зміненими позначками
+     * (записи незмінні — правити на місці нічого не можна).
+     */
     private DutySchedule withSwappedMarks(DutySchedule schedule, int dayOfMonth, int engineerA, int engineerB) {
         List<DutyDay> newDays = schedule.days().stream()
                 .map(d -> d.day() != dayOfMonth ? d : swapMarksOnDay(d, engineerA, engineerB))
@@ -415,6 +488,12 @@ public class DutyExchangeService {
         return new DutySchedule(schedule.month(), schedule.engineers(), newDays, schedule.lastDays(), schedule.tid());
     }
 
+    /**
+     * Копія дня, де позначки двох інженерів помінялись місцями цілком. Саме
+     * «цілком», а не «віддав D»: те, що стояло в колеги (найчастіше {@code OFF},
+     * рідше {@code WORK}), переходить ініціатору — звідси й «кілька вихідних
+     * поспіль без втрати робочих годин».
+     */
     private DutyDay swapMarksOnDay(DutyDay day, int engineerA, int engineerB) {
         Map<Integer, DutyMark> marks = new LinkedHashMap<>(day.marks());
         DutyMark markA = day.markFor(engineerA);
@@ -436,18 +515,30 @@ public class DutyExchangeService {
                 .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + m)));
     }
 
+    /** Інженер за П.І.Б., якщо він у цьому місяці бере участь у ротації. */
     private Optional<Engineer> rotationEngineer(DutySchedule schedule, String name) {
         return schedule.engineers().stream()
                 .filter(e -> e.name().equals(name) && !e.onlyWorkdays())
                 .findFirst();
     }
 
+    /**
+     * Те саме, але обов'язково.
+     *
+     * @throws DutyExchangeValidationException якщо його в цьому місяці нема або
+     *         він позначений «лише робочі дні» (ростер міг змінитись)
+     */
     private Engineer requireRotationEngineer(DutySchedule schedule, String name) {
         return rotationEngineer(schedule, name)
                 .orElseThrow(() -> new DutyExchangeValidationException(
                         name + " не бере участі в ротації чергувань у " + schedule.month()));
     }
 
+    /**
+     * День місяця з графіка.
+     *
+     * @throws DutyExchangeValidationException якщо такого дня у файлі нема (пошкоджені дані)
+     */
     private DutyDay requireDay(DutySchedule schedule, int dayOfMonth) {
         return schedule.days().stream()
                 .filter(d -> d.day() == dayOfMonth)
@@ -455,17 +546,32 @@ public class DutyExchangeService {
                 .orElseThrow(() -> new DutyExchangeValidationException("Немає дня " + dayOfMonth + " у " + schedule.month()));
     }
 
+    /**
+     * Пропозиція за номером.
+     *
+     * @throws DutyExchangeValidationException якщо її нема — зокрема й тоді, коли
+     *         її щойно «визнали» (кнопка «Зрозуміло») з іншої вкладки
+     */
     private DutyExchangeProposal requireProposal(int id) {
         return exchangeRepository.find(id)
                 .orElseThrow(() -> new DutyExchangeValidationException("Немає пропозиції #" + id));
     }
 
+    /**
+     * Пропозиція має бути саме в цьому стані — захист від повторного
+     * натискання й від дії з несвіжої сторінки.
+     */
     private void requireStatus(DutyExchangeProposal proposal, DutyExchangeStatus expected) {
         if (proposal.status() != expected) {
             throw new DutyExchangeValidationException("Пропозиція #" + proposal.id() + " зараз не в стані " + expected);
         }
     }
 
+    /**
+     * Дію виконує саме той, кому вона адресована. Це не дублює
+     * {@code SecurityConfig}: там ролі, а тут — конкретна сторона конкретної
+     * пропозиції, чого URL-матчер знати не може.
+     */
     private void requireParty(String expectedName, String actingEngineerName) {
         if (!expectedName.equals(actingEngineerName)) {
             throw new DutyExchangeValidationException("Ця дія не для вас");

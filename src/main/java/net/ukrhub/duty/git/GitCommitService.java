@@ -67,6 +67,11 @@ public class GitCommitService {
      */
     private static final String GIT_EXECUTABLE = resolveGitExecutable();
 
+    /**
+     * Абсолютний шлях до {@code git} серед типових місць; жодного не знайшли —
+     * лишається голе {@code "git"} з пошуком через {@code PATH} (краще, ніж
+     * відмовити на старті: у нетиповому образі бінарник може лежати деінде).
+     */
     private static String resolveGitExecutable() {
         for (String candidate : List.of("/usr/bin/git", "/usr/local/bin/git", "/bin/git")) {
             if (Files.isExecutable(Path.of(candidate))) {
@@ -76,6 +81,12 @@ public class GitCommitService {
         return "git";
     }
 
+    /**
+     * Перевіряє на старті, що JVM запущено в UTF-8-локалі.
+     *
+     * @throws IllegalStateException якщо ні — краще не піднятись узагалі, ніж
+     *         тихо писати git-історію з пошкодженою кирилицею
+     */
     public GitCommitService() {
         // ProcessBuilder передає аргументи й змінні середовища дочірньому
         // процесу через sun.jnu.encoding (native-кодування JVM), а не
@@ -95,6 +106,13 @@ public class GitCommitService {
         }
     }
 
+    /**
+     * Один файл — один коміт: {@code git add} і {@code git commit} саме цього
+     * шляху, від імені вказаного автора.
+     *
+     * @param dataDir корінь репозиторію журналу; створюється й ініціалізується
+     *        при потребі ({@link #ensureRepo})
+     */
     public void commit(Path dataDir, Path fileToCommit, String message, String authorName, String authorEmail) {
         ensureRepo(dataDir);
 
@@ -163,6 +181,11 @@ public class GitCommitService {
         }
     }
 
+    /**
+     * Повертає робочий каталог і індекс до стану останнього коміту. Невдача
+     * тут — не виняток, а {@code ERROR} у лог: викликач уже кидає власний,
+     * важливіший, і глушити його нема сенсу.
+     */
     private void restoreFromHead(Path dataDir, List<String> relativePaths) {
         List<String> restoreCommand = new ArrayList<>(List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
                 "checkout", "--quiet", "HEAD", "--"));
@@ -229,6 +252,11 @@ public class GitCommitService {
         return new CommitInfo(fields[0], fields[1], fields[2], fields[3], diff);
     }
 
+    /**
+     * Створює каталог даних і, якщо він не всередині жодного git-репозиторію,
+     * ініціалізує там власний. Каталог усередині наявного репозиторію
+     * (як під час розробки) лишається як є — коміти йдуть у той репозиторій.
+     */
     private void ensureRepo(Path dataDir) {
         try {
             java.nio.file.Files.createDirectories(dataDir);
@@ -246,10 +274,16 @@ public class GitCommitService {
         run(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "init", "--quiet"));
     }
 
+    /** Команда без авторства — усе, крім самого {@code git commit}. */
     private void run(Path cwd, List<String> command) {
         run(cwd, command, null, null, null);
     }
 
+    /**
+     * Виконує команду, вимагаючи нульового коду завершення.
+     *
+     * @throws IllegalStateException з кодом і виводом, якщо команда не вдалась
+     */
     private void run(Path cwd, List<String> command, String authorName, String authorEmail, String gitDate) {
         ProcessResult result = execute(cwd, command, authorName, authorEmail, gitDate);
         if (result.exitCode() != 0) {
@@ -281,6 +315,13 @@ public class GitCommitService {
                 .formatted(command, result.exitCode(), result.output()));
     }
 
+    /**
+     * Запускає git і збирає його вивід (stdout і stderr разом — при розборі
+     * помилок важливо бачити обидва в правильному порядку).
+     *
+     * @param authorName {@code null} — не передавати git жодних змінних
+     *        авторства; інакше задаються всі шість {@code GIT_*}
+     */
     private ProcessResult execute(Path cwd, List<String> command, String authorName, String authorEmail, String gitDate) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command)
@@ -350,6 +391,13 @@ public class GitCommitService {
         throw last;
     }
 
+    /**
+     * Результат зовнішнього процесу: код завершення й увесь його вивід
+     * (stdout і stderr разом).
+     *
+     * @param exitCode код завершення git-процесу
+     * @param output   увесь вивід процесу
+     */
     private record ProcessResult(int exitCode, String output) {
     }
 }

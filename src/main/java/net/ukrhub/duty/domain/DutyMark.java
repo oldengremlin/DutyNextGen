@@ -34,10 +34,15 @@ public enum DutyMark {
         this.code = code;
     }
 
+    /** Літера, якою позначка записується у файл графіка (успадковано від {@code tds.pl}). */
     public char code() {
         return code;
     }
 
+    /**
+     * Позначка за літерою з файлу. Невідома літера — {@link #OFF}: краще
+     * показати порожню клітинку, ніж упустити весь місяць через один символ.
+     */
     public static DutyMark fromChar(char c) {
         for (DutyMark m : values()) {
             if (m.code == c) {

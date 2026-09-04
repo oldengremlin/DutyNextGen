@@ -54,6 +54,10 @@ public class ScheduleGenerationScheduler {
     private final DutyScheduleRepository repository;
     private final RotationTemplateRepository templateRepository;
 
+    /**
+     * Репозиторій шаблонів потрібен, щоб дістати саме той шаблон, яким
+     * генерувався поточний місяць ({@code DutySchedule.tid()}).
+     */
     public ScheduleGenerationScheduler(DutyScheduleRepository repository, RotationTemplateRepository templateRepository) {
         this.repository = repository;
         this.templateRepository = templateRepository;

@@ -47,9 +47,18 @@ final class CaldavConfFile {
 
     private static final String FILE_NAME = "duty-caldav.conf";
 
+    /** Лише статичні методи. */
     private CaldavConfFile() {
     }
 
+    /**
+     * Читає {@code duty-caldav.conf}, якщо він є й читабельний. Порожній чи
+     * відсутній {@code CALDAV_BASE_URL} — те саме, що й відсутній файл:
+     * CalDAV просто не налаштовано.
+     *
+     * @param stateDir каталог стану синку з конфігурації застосунку — у самому
+     *        файлі його свідомо не читаємо (це шлях застарілого shell-скрипту)
+     */
     static Optional<DutyProperties.Caldav> readIfPresent(Path configDir, String stateDir) {
         Path file = configDir.resolve(FILE_NAME);
         if (!Files.isReadable(file)) {
@@ -81,6 +90,7 @@ final class CaldavConfFile {
                 baseUrl, values.getOrDefault("CALDAV_USER", ""), values.getOrDefault("CALDAV_PASS", ""), stateDir));
     }
 
+    /** Знімає парні лапки навколо значення — файл сумісний з {@code . "$CONF"} у POSIX sh. */
     private static String unquote(String value) {
         if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\""))
                 || (value.startsWith("'") && value.endsWith("'")))) {

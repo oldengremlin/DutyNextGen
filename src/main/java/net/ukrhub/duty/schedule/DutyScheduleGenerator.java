@@ -65,6 +65,7 @@ public final class DutyScheduleGenerator {
 
     private static final DateTimeFormatter YM = DateTimeFormatter.ofPattern("yyyyMM");
 
+    /** Лише статичні методи. */
     private DutyScheduleGenerator() {
     }
 
@@ -124,10 +125,15 @@ public final class DutyScheduleGenerator {
         return generate(from, engineers, rotating, template, columns, offset);
     }
 
+    /**
+     * Адміністратори за номером — саме цей порядок задає відповідність «слот
+     * шаблону → людина», тож він має бути детермінованим, а не таким, як у файлі.
+     */
     private static List<Engineer> sortedEngineers(DutySchedule from) {
         return from.engineers().stream().sorted(Comparator.comparingInt(Engineer::number)).toList();
     }
 
+    /** Ті, хто бере участь у ротації — тобто всі, крім позначених «лише робочі дні». */
     private static List<Engineer> rotatingOf(List<Engineer> engineers) {
         return engineers.stream().filter(e -> !e.onlyWorkdays()).toList();
     }
@@ -146,6 +152,12 @@ public final class DutyScheduleGenerator {
         return slots;
     }
 
+    /**
+     * Кількість чергових має точно збігатися з кількістю слотів шаблону.
+     *
+     * @throws ScheduleGenerationException з поясненням для адміністратора —
+     *         мовчки вгадувати відповідність не можна: це production-графік
+     */
     private static void requireSlotsMatch(DutySchedule from, RotationTemplate template, List<Engineer> rotating) {
         if (rotating.size() != template.slots()) {
             throw new ScheduleGenerationException(
@@ -268,6 +280,11 @@ public final class DutyScheduleGenerator {
         return -1;
     }
 
+    /**
+     * Позначки чергових одного дня в рядок — у тому самому порядку, що й
+     * стовпці розтягнутого шаблону, щоб їх можна було просто порівняти
+     * рядок з рядком при пошуку фази.
+     */
     private static String joinMarks(Map<Integer, DutyMark> marks, List<Engineer> rotating) {
         StringBuilder sb = new StringBuilder(rotating.size());
         for (Engineer e : rotating) {

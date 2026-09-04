@@ -29,10 +29,16 @@ public class CalDavSyncScheduler {
 
     private final CalDavSyncService syncService;
 
+    /** Уся робота — в сервісі; цей клас лише розклад. */
     public CalDavSyncScheduler(CalDavSyncService syncService) {
         this.syncService = syncService;
     }
 
+    /**
+     * Черговий прогін. {@code fixedDelay}, а не {@code fixedRate} — п'ять
+     * хвилин відлічуються від ЗАВЕРШЕННЯ попереднього прогону, тож повільний
+     * CalDAV-сервер не призведе до накладання прогонів один на одного.
+     */
     @Scheduled(fixedDelay = 300_000)
     public void sync() {
         syncService.syncRecentMonths();

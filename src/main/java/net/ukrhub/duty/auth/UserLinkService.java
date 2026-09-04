@@ -38,6 +38,7 @@ public class UserLinkService {
 
     private final Path usersFile;
 
+    /** Шлях до {@code users.txt} фіксується на старті; сам файл читається на кожну операцію. */
     public UserLinkService(DutyProperties properties) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
     }
@@ -54,6 +55,11 @@ public class UserLinkService {
         return user != null ? Optional.ofNullable(user.linkedEngineer()) : Optional.empty();
     }
 
+    /**
+     * Переносить прив'язку всіх користувачів зі старого П.І.Б. на нове.
+     * Збіг імен — не помилка: перейменування без реальної зміни просто нічого
+     * не робить.
+     */
     public void renameEngineer(String oldName, String newName) {
         if (oldName.equals(newName)) {
             return;

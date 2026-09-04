@@ -44,6 +44,7 @@ public enum DutyExchangeStatus {
         return this == PENDING || this == ACCEPTED;
     }
 
+    /** Назва стану для показу в таблиці пропозицій. */
     public String displayName() {
         return displayName;
     }

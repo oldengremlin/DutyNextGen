@@ -51,9 +51,17 @@ public final class UserAdminCli {
     /** Те саме обмеження, що й у веб-формі {@link UserAdminController} — щоб CLI не був лазівкою повз політику паролів. */
     private static final int MIN_PASSWORD_LENGTH = 8;
 
+    /** Лише статичні методи. */
     private UserAdminCli() {
     }
 
+    /**
+     * Створює перший (бутстрапний) обліковий запис і завершує процес кодом 1
+     * при будь-якій відмові — це CLI, а не веб-запит: краще виразний код
+     * повернення для скрипту, ніж виняток у stderr.
+     *
+     * @param args аргументи {@code main} цілком, де {@code args[1]} — ім'я користувача
+     */
     public static void addUser(String[] args) {
         if (args.length < 2 || args[1].isBlank()) {
             System.err.println("Використання: java -jar duty-nextgen.jar add-user <ім'я>");
@@ -113,6 +121,13 @@ public final class UserAdminCli {
         }
     }
 
+    /**
+     * Пароль з консолі без відлуння; за відсутності консолі — звичайний рядок
+     * із прямим попередженням, що введене буде видно.
+     *
+     * @param fallbackScanner єдиний на весь запуск {@code Scanner} (див.
+     *        {@link #addUser}), або {@code null}, якщо консоль є
+     */
     private static char[] readSecret(String prompt, Scanner fallbackScanner) {
         Console console = System.console();
         if (console != null) {

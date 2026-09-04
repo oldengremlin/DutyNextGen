@@ -43,6 +43,7 @@ final class DigestAuth {
     private static final Pattern PARAM = Pattern.compile("(\\w+)=\"([^\"]*)\"|(\\w+)=([^,\\s]+)");
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /** Лише статичні методи. */
     private DigestAuth() {
     }
 
@@ -91,6 +92,11 @@ final class DigestAuth {
         return header.toString();
     }
 
+    /**
+     * Параметри виклику ({@code realm}, {@code nonce}, {@code qop}, ...) — і в
+     * лапках, і без них: RFC дозволяє обидва написання, реальні сервери
+     * користуються обома.
+     */
     private static Map<String, String> parseParams(String challenge) {
         Map<String, String> result = new LinkedHashMap<>();
         Matcher m = PARAM.matcher(challenge);
@@ -104,12 +110,17 @@ final class DigestAuth {
         return result;
     }
 
+    /** Клієнтський nonce — випадковий на кожен запит, як вимагає {@code qop=auth}. */
     private static String cnonce() {
         byte[] bytes = new byte[8];
         RANDOM.nextBytes(bytes);
         return HexFormat.of().formatHex(bytes);
     }
 
+    /**
+     * MD5 — не вибір, а вимога протоколу Digest (RFC 2617); поза цим
+     * алгоритмом він у проєкті ніде не використовується.
+     */
     private static String md5(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");

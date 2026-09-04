@@ -59,6 +59,12 @@ public record DutySchedule(
         this(month, engineers, days, List.of(lastDay0, lastDay1), null);
     }
 
+    /**
+     * Адміністратор за номером колонки.
+     *
+     * @throws IllegalArgumentException якщо такого номера в цьому місяці нема
+     *         (внутрішній інваріант: номер завжди беруть із цього ж графіка)
+     */
     public Engineer engineer(int number) {
         return engineers.stream()
                 .filter(e -> e.number() == number)

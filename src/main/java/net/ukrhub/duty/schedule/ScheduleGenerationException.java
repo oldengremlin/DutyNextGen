@@ -21,6 +21,7 @@ package net.ukrhub.duty.schedule;
  */
 public class ScheduleGenerationException extends RuntimeException {
 
+    /** @param message причина українською — показується адміністратору як є */
     public ScheduleGenerationException(String message) {
         super(message);
     }

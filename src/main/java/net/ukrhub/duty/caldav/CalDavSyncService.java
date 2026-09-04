@@ -79,12 +79,21 @@ public class CalDavSyncService {
      */
     private final CalDavClient client;
 
+    /**
+     * Налаштування CalDAV визначаються один раз на старті ({@link #resolveConfig})
+     * — і файл, і змінні середовища за час роботи не міняються.
+     */
     public CalDavSyncService(DutyScheduleRepository repository, DutyProperties properties) {
         this.repository = repository;
         this.config = resolveConfig(properties);
         this.client = configured() ? new CalDavClient(config.baseUrl(), config.user(), config.password()) : null;
     }
 
+    /**
+     * Змінні середовища мають пріоритет над {@code duty-caldav.conf}; якщо не
+     * задано ні там, ні там — повертається неналаштована конфігурація, і синк
+     * просто нічого не робить.
+     */
     private static DutyProperties.Caldav resolveConfig(DutyProperties properties) {
         DutyProperties.Caldav fromEnv = properties.caldav();
         if (fromEnv != null && fromEnv.configured()) {
@@ -99,6 +108,10 @@ public class CalDavSyncService {
         return fromEnv;
     }
 
+    /**
+     * Чи взагалі є куди синхронізувати — використовує й сторінка адміністрування,
+     * щоб не показувати кнопку «Синхронізувати зараз» без налаштувань.
+     */
     public boolean configured() {
         return config != null && config.configured();
     }

@@ -30,14 +30,23 @@ import java.util.Map;
  */
 public record DutyDay(int day, DayOfWeek dow, boolean holiday, Map<Integer, DutyMark> marks) {
 
+    /**
+     * Звичайний день (не свято) — скорочення для більшості викликів і всіх
+     * даних, читаних зі старого формату без маркера {@code *}.
+     */
     public DutyDay(int day, DayOfWeek dow, Map<Integer, DutyMark> marks) {
         this(day, dow, false, marks);
     }
 
+    /** Субота чи неділя — календарно, без огляду на позначки й свята. */
     public boolean isWeekend() {
         return dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
     }
 
+    /**
+     * Позначка адміністратора на цей день; відсутня — {@link DutyMark#OFF}
+     * (адміністратора могли додати в ростер пізніше, ніж заповнили дні).
+     */
     public DutyMark markFor(int engineerNumber) {
         return marks.getOrDefault(engineerNumber, DutyMark.OFF);
     }

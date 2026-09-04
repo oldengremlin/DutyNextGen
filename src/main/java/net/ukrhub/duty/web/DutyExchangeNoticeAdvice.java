@@ -37,6 +37,10 @@ public class DutyExchangeNoticeAdvice {
     private final DutyExchangeService exchangeService;
     private final UserLinkService userLinkService;
 
+    /**
+     * {@link UserLinkService} — щоб дізнатись, чий саме графік стосується
+     * поточного користувача: бейдж рахується по інженеру, а не по обліковому запису.
+     */
     public DutyExchangeNoticeAdvice(DutyExchangeService exchangeService, UserLinkService userLinkService) {
         this.exchangeService = exchangeService;
         this.userLinkService = userLinkService;

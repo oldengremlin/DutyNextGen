@@ -70,6 +70,7 @@ final class UserStore {
     private static final Set<PosixFilePermission> OWNER_ONLY =
             PosixFilePermissions.fromString("rw-------");
 
+    /** Лише статичні методи. */
     private UserStore() {
     }
 

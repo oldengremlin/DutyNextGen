@@ -37,10 +37,23 @@ public class FileUserDetailsService implements UserDetailsService {
 
     private final Path usersFile;
 
+    /**
+     * Шлях до {@code users.txt} фіксується на старті; сам файл читається на
+     * кожен вхід (див. {@link #loadUserByUsername}), тож зміни через
+     * {@code /admin/users} діють одразу, без перезапуску.
+     */
     public FileUserDetailsService(DutyProperties properties) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
     }
 
+    /**
+     * Читає {@code users.txt} на кожен запит автентифікації — без кешу
+     * навмисно: файл маленький, а зміна ролі чи пароля має діяти негайно,
+     * включно з видаленням щойно скомпрометованого облікового запису.
+     *
+     * @throws UsernameNotFoundException якщо такого користувача у файлі нема
+     *         (у тому числі коли файлу не існує взагалі)
+     */
     @Override
     public UserDetails loadUserByUsername(String username) {
         UserStore.StoredUser stored = UserStore.readUsers(usersFile).get(username);

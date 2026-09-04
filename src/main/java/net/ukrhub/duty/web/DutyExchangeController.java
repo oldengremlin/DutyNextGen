@@ -84,6 +84,10 @@ public class DutyExchangeController {
     private final DutyExchangeDraftStore draftStore;
     private final UserLinkService userLinkService;
 
+    /**
+     * {@link DutyExchangeDraftStore} — окремо від сервісу: чернетка це суто
+     * екранний стан у пам'яті, а не частина доменної моделі обміну.
+     */
     public DutyExchangeController(DutyExchangeService exchangeService, DutyExchangeDraftStore draftStore,
                                    UserLinkService userLinkService) {
         this.exchangeService = exchangeService;
@@ -91,6 +95,15 @@ public class DutyExchangeController {
         this.userLinkService = userLinkService;
     }
 
+    /**
+     * Сторінка обміну: свої дати, чернетка, свої пропозиції, а для
+     * адміністратора — ще й черга на затвердження.
+     *
+     * @param counterpart обраний колега; значення не зі списку ігнорується —
+     *        не помилка, а захист від підробленого параметра в URL
+     * @throws ResponseStatusException 403, якщо користувач ні до кого не
+     *         прив'язаний і не адміністратор
+     */
     @GetMapping
     public String view(@RequestParam(required = false) String counterpart, Model model, Authentication authentication) {
         boolean isAdmin = RoleCheck.has(authentication, Role.ADMIN);
@@ -125,6 +138,11 @@ public class DutyExchangeController {
         return "exchange";
     }
 
+    /**
+     * Додає пару дат у чернетку. Тип обміну (D чи W) не приходить з форми, а
+     * береться з реального графіка за {@code myDate} — це заразом і перевірка,
+     * що дата справді твоя.
+     */
     @PostMapping("/draft/add")
     public String addDraftStep(@RequestParam String counterpart, @RequestParam LocalDate myDate,
                                 @RequestParam LocalDate theirDate, Authentication authentication,
@@ -158,12 +176,18 @@ public class DutyExchangeController {
         return "redirect:/exchange?counterpart=" + URLEncoder.encode(counterpart, StandardCharsets.UTF_8);
     }
 
+    /** Прибирає крок із чернетки. */
     @PostMapping("/draft/remove")
     public String removeDraftStep(@RequestParam int index, Authentication authentication) {
         draftStore.removeAt(authentication.getName(), index);
         return "redirect:/exchange";
     }
 
+    /**
+     * Відправляє чернетку: групує кроки за колегою й створює по пропозиції на
+     * кожного. Чернетка очищується лише при повному успіху — інакше все
+     * набране лишається на екрані й помилку можна виправити, не набираючи заново.
+     */
     @PostMapping("/draft/submit")
     public String submitDraft(Authentication authentication, RedirectAttributes redirectAttributes) {
         String username = authentication.getName();
@@ -197,18 +221,24 @@ public class DutyExchangeController {
         return "redirect:/exchange";
     }
 
+    /** Колега погоджується на обмін. */
     @PostMapping("/{id}/accept")
     public String accept(@PathVariable int id, Authentication authentication, RedirectAttributes redirectAttributes) {
         return actAsParty(id, authentication, redirectAttributes,
                 (proposalId, username, engineer) -> exchangeService.accept(proposalId, username, engineer));
     }
 
+    /** Колега відмовляється від обміну. */
     @PostMapping("/{id}/decline")
     public String decline(@PathVariable int id, Authentication authentication, RedirectAttributes redirectAttributes) {
         return actAsParty(id, authentication, redirectAttributes,
                 (proposalId, username, engineer) -> exchangeService.decline(proposalId, username, engineer));
     }
 
+    /**
+     * «Зрозуміло» на завершеній пропозиції — прибирає її з журналу назавжди
+     * (запис видаляється, слід лишається в git-історії).
+     */
     @PostMapping("/{id}/ack")
     public String acknowledge(@PathVariable int id, Authentication authentication, RedirectAttributes redirectAttributes) {
         return actAsParty(id, authentication, redirectAttributes,
@@ -218,7 +248,7 @@ public class DutyExchangeController {
                 });
     }
 
-    /** {@code approve}/{@code reject} — лише ADMIN, гарантовано {@link net.ukrhub.duty.config.SecurityConfig}. */
+    /** {@code approve}/{@code reject} — лише ADMIN, гарантовано {@link net.ukrhub.duty.auth.SecurityConfig}. */
     @PostMapping("/{id}/approve")
     public String approve(@PathVariable int id, Authentication authentication, RedirectAttributes redirectAttributes) {
         try {
@@ -232,6 +262,7 @@ public class DutyExchangeController {
         return "redirect:/exchange";
     }
 
+    /** Адміністратор відхиляє прийняту обома сторонами пропозицію. */
     @PostMapping("/{id}/reject")
     public String reject(@PathVariable int id, Authentication authentication, RedirectAttributes redirectAttributes) {
         try {
@@ -249,6 +280,11 @@ public class DutyExchangeController {
         Object apply(int proposalId, String username, String engineerName);
     }
 
+    /**
+     * Спільна обгортка для дій сторони обміну: знайти, чий графік стосується
+     * цього користувача, виконати дію й перетворити будь-яку невдачу на
+     * зрозуміле повідомлення замість Whitelabel Error Page.
+     */
     private String actAsParty(int id, Authentication authentication, RedirectAttributes redirectAttributes, PartyAction action) {
         Optional<String> myEngineer = userLinkService.linkedEngineerOf(authentication.getName());
         if (myEngineer.isEmpty()) {
@@ -266,6 +302,11 @@ public class DutyExchangeController {
         return "redirect:/exchange";
     }
 
+    /**
+     * П.І.Б. інженера, до якого прив'язаний користувач — але лише якщо той
+     * інженер справді бере участь у ротації: прив'язка до людини «лише робочі
+     * дні» до обміну стосунку не має.
+     */
     private Optional<String> linkedRotationEngineer(Authentication authentication, List<String> rotationEngineerNames) {
         return userLinkService.linkedEngineerOf(authentication.getName()).filter(rotationEngineerNames::contains);
     }

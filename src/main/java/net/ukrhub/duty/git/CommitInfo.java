@@ -17,7 +17,12 @@ package net.ukrhub.duty.git;
 
 /**
  * Один запис історії змін файлу графіка — {@code хто/коли/що}.
- * {@code date} — рядок ISO 8601 як його віддає {@code git log --date=iso-strict}.
+ *
+ * @param hash    повний SHA-1 коміту
+ * @param author  ім'я автора коміту — той, хто натиснув «Зберегти»
+ * @param date    ISO 8601, як його віддає {@code git log --date=iso-strict}
+ * @param message повідомлення коміту
+ * @param diff    unified diff саме цього файлу в цьому коміті
  */
 public record CommitInfo(String hash, String author, String date, String message, String diff) {
 }

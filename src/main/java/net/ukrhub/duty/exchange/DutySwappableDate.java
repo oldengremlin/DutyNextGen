@@ -25,6 +25,10 @@ import java.time.LocalDate;
  * ніде не зберігається. {@code locked} — уже задіяна в іншій активній
  * пропозиції (своїй чи чужій) — у конструкторі пропозиції така дата
  * показується, але недоступна для вибору.
+ *
+ * @param date   сама дата
+ * @param type   що на ній стоїть — {@link DutyMark#DUTY} чи {@link DutyMark#WORK}
+ * @param locked чи вже задіяна в іншій активній пропозиції
  */
 public record DutySwappableDate(LocalDate date, DutyMark type, boolean locked) {
 }

@@ -55,10 +55,22 @@ class CalDavClient {
         send(HttpRequest.newBuilder(uri).DELETE(), uri, "DELETE");
     }
 
+    /**
+     * Адреса ресурсу події: {@code <колекція>/<uid>.ics}. UID генерує
+     * {@link DutyIcsGenerator} з дати й номера інженера, тож він завжди
+     * безпечний для URL — стороннього тексту сюди не потрапляє.
+     */
     private URI eventUri(String uid) {
         return URI.create(baseUrl + "/" + uid + ".ics");
     }
 
+    /**
+     * Надсилає запит, за потреби повторивши його з {@code Authorization}.
+     * Перша спроба свідомо без облікових даних: сервер сам скаже, якої схеми
+     * він хоче ({@code WWW-Authenticate}), і рахувати Digest наосліп не треба.
+     *
+     * @throws IOException якщо схема автентифікації не підтримується або відповідь >= 300
+     */
     private void send(HttpRequest.Builder builder, URI uri, String method) throws IOException, InterruptedException {
         HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
 

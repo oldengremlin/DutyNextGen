@@ -18,9 +18,18 @@ package net.ukrhub.duty.web;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Один рядок unified diff з CSS-класом для кольорового відображення. */
+/**
+ * Один рядок unified diff з CSS-класом для кольорового відображення.
+ *
+ * @param text     сам рядок, як його віддав git
+ * @param cssClass клас для розфарбування ({@code diff-add}, {@code diff-del}, ...)
+ */
 public record DiffLine(String text, String cssClass) {
 
+    /**
+     * Розбирає unified diff на рядки з CSS-класами. Порожній чи {@code null} —
+     * порожній список: у коміта може не бути змін саме цього файлу.
+     */
     public static List<DiffLine> parse(String diff) {
         List<DiffLine> lines = new ArrayList<>();
         if (diff == null || diff.isBlank()) {
@@ -32,6 +41,11 @@ public record DiffLine(String text, String cssClass) {
         return lines;
     }
 
+    /**
+     * CSS-клас рядка. Порядок перевірок важливий: {@code ---}/{@code +++} —
+     * це заголовки файлів, а не видалений/доданий рядок, тож вони мусять
+     * перевірятись ПЕРЕД одинарними {@code -}/{@code +}.
+     */
     private static String classify(String line) {
         if (line.startsWith("+++") || line.startsWith("---")) {
             return "diff-file";

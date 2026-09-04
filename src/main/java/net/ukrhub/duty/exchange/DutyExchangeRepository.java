@@ -47,6 +47,7 @@ public class DutyExchangeRepository {
     private final Path exchangesDir;
     private final GitCommitService gitCommitService;
 
+    /** Каталог пропозицій — свій git-журнал, той самий {@link GitCommitService}, що й для графіка. */
     public DutyExchangeRepository(DutyProperties properties, GitCommitService gitCommitService) {
         this.exchangesDir = properties.exchangesDirPath();
         this.gitCommitService = gitCommitService;
@@ -71,6 +72,12 @@ public class DutyExchangeRepository {
         }
     }
 
+    /**
+     * Пропозиція за номером, або порожньо — і коли файлу нема, і коли він
+     * пошкоджений (див. коментар у тілі).
+     *
+     * @throws java.io.UncheckedIOException якщо файл є, але не читається
+     */
     public Optional<DutyExchangeProposal> find(int id) {
         Path file = fileFor(id);
         if (!Files.exists(file)) {
@@ -95,6 +102,10 @@ public class DutyExchangeRepository {
         }
     }
 
+    /**
+     * Записує пропозицію й комітить її — кожен перехід стану лишає слід у
+     * журналі, з автором тієї дії.
+     */
     public void save(DutyExchangeProposal proposal, String commitMessage, String authorName, String authorEmail) {
         Path file = fileFor(proposal.id());
         String content = DutyExchangeFormat.serialize(proposal);
@@ -134,6 +145,7 @@ public class DutyExchangeRepository {
         }
     }
 
+    /** Ім'я файлу — сам номер пропозиції (не П.І.Б. учасників). */
     private Path fileFor(int id) {
         return exchangesDir.resolve(String.valueOf(id));
     }

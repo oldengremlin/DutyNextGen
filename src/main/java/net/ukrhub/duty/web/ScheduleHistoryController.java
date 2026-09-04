@@ -43,15 +43,32 @@ public class ScheduleHistoryController {
     private final DutyScheduleRepository repository;
     private final GitCommitService gitCommitService;
 
+    /**
+     * Репозиторій потрібен лише заради шляхів ({@code dataDir}, {@code fileFor})
+     * — сам графік тут не читається, усе показане приходить з git-журналу.
+     */
     public ScheduleHistoryController(DutyScheduleRepository repository, GitCommitService gitCommitService) {
         this.repository = repository;
         this.gitCommitService = gitCommitService;
     }
 
+    /**
+     * Один рядок історії для шаблону: усе вже готове до показу.
+     *
+     * @param hash        скорочений SHA-1 (8 символів)
+     * @param author      хто зберіг
+     * @param displayDate дата у вигляді {@code dd.MM.yyyy HH:mm}
+     * @param message     повідомлення коміту
+     * @param diffLines   діфф, розібраний на кольорові рядки
+     */
     public record HistoryEntry(String hash, String author, String displayDate, String message,
                                 List<DiffLine> diffLines) {
     }
 
+    /**
+     * Сторінка історії. Порожня історія (файлу ще не було в git) — не помилка:
+     * показується порожній список.
+     */
     @GetMapping("/schedule/{ym}/history")
     public String history(@PathVariable String ym, Model model) {
         YearMonth month = MonthPath.parse(ym);
@@ -70,6 +87,10 @@ public class ScheduleHistoryController {
         return "schedule-history";
     }
 
+    /**
+     * ISO-дата з git у вигляд для читання; нерозбірне значення показуємо як є —
+     * краще сира дата, ніж упала сторінка.
+     */
     private static String formatDate(String isoDate) {
         try {
             return OffsetDateTime.parse(isoDate).format(DISPLAY_DATE);

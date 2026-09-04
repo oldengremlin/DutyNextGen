@@ -58,6 +58,10 @@ public record DutyExchangeProposal(
         }
     }
 
+    /**
+     * Копія з іншим станом — запис незмінний, кожен перехід стану це новий
+     * об'єкт і новий git-коміт файлу пропозиції.
+     */
     public DutyExchangeProposal withStatus(DutyExchangeStatus newStatus) {
         return new DutyExchangeProposal(id, initiatorName, initiatorUsername, counterpartName, steps, newStatus, createdAt);
     }

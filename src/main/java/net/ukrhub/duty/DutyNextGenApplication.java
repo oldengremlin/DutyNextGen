@@ -26,6 +26,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class DutyNextGenApplication {
 
+    /**
+     * Точка входу. Аргумент {@code add-user} відводить у CLI-режим ще до
+     * SpringApplication.run — саме тому перевірка тут, а не в бін-і: підняте
+     * веб-застосування для створення першого користувача не потрібне й лише
+     * заважало б (порт, фонові задачі, вимога наявних облікових записів).
+     */
     public static void main(String[] args) {
         // CLI-режим (без веб-сервера й Spring-контексту) — первинна
         // ініціалізація/зміна пароля: java -jar duty-nextgen.jar add-user <ім'я>

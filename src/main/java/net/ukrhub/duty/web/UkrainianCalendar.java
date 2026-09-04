@@ -35,13 +35,16 @@ public final class UkrainianCalendar {
             "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"
     };
 
+    /** Лише статичні методи. */
     private UkrainianCalendar() {
     }
 
+    /** Українська назва місяця в називному відмінку («Вересень»). */
     public static String monthName(Month month) {
         return MONTHS[month.getValue() - 1];
     }
 
+    /** Двобуквене українське скорочення дня тижня. */
     public static String dayOfWeekShort(DayOfWeek dow) {
         // dow буває null для рядка графіка, який не вдалося розпізнати
         // (пошкоджені/нестандартні дані) — краще показати "?", ніж

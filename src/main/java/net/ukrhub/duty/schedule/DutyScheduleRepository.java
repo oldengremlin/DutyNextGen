@@ -42,11 +42,21 @@ public class DutyScheduleRepository {
     private final Path dataDir;
     private final GitCommitService gitCommitService;
 
+    /**
+     * Каталог даних фіксується на старті — уже абсолютним
+     * ({@link DutyProperties#dataDirPath()}), як того потребує зовнішній git-процес.
+     */
     public DutyScheduleRepository(DutyProperties properties, GitCommitService gitCommitService) {
         this.dataDir = properties.dataDirPath();
         this.gitCommitService = gitCommitService;
     }
 
+    /**
+     * Графік місяця, або порожньо, якщо файлу нема (штатно — місяць ще не
+     * згенеровано).
+     *
+     * @throws java.io.UncheckedIOException якщо файл є, але не читається
+     */
     public Optional<DutySchedule> find(YearMonth month) {
         Path file = fileFor(month);
         if (!Files.exists(file)) {
@@ -60,6 +70,12 @@ public class DutyScheduleRepository {
         }
     }
 
+    /**
+     * Записує файл і одразу комітить його — одна дія користувача, один коміт.
+     *
+     * @param authorName ім'я для авторства git-коміту: так у журналі змін видно
+     *        не «застосунок», а конкретну людину, яка натиснула «Зберегти»
+     */
     public void save(DutySchedule schedule, String commitMessage, String authorName, String authorEmail) {
         Path file = fileFor(schedule.month());
         String content = DutyScheduleFormat.serialize(schedule);
@@ -72,6 +88,7 @@ public class DutyScheduleRepository {
         gitCommitService.commit(dataDir, file, commitMessage, authorName, authorEmail);
     }
 
+    /** Чи є файл графіка за цей місяць — без читання й розбору. */
     public boolean exists(YearMonth month) {
         return Files.exists(fileFor(month));
     }
@@ -103,10 +120,15 @@ public class DutyScheduleRepository {
         gitCommitService.delete(dataDir, files, commitMessage, authorName, authorEmail);
     }
 
+    /**
+     * Шлях до місячного файлу ({@code <data-dir>/YYYYMM}) — потрібен назовні
+     * для git-історії та для запису кількох місяців одним комітом.
+     */
     public Path fileFor(YearMonth month) {
         return dataDir.resolve(FILE_NAME.format(month));
     }
 
+    /** Каталог даних — корінь git-репозиторію журналу змін. */
     public Path dataDir() {
         return dataDir;
     }
