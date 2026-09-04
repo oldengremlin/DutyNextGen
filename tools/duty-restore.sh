@@ -20,6 +20,9 @@ CONTAINER="${DUTY_CONTAINER:-duty-nextgen}"
 DATA_VOLUME="${DUTY_DATA_VOLUME:-/safe/duty-nextgen/data}"
 CONF_VOLUME="${DUTY_CONF_VOLUME:-/safe/duty-nextgen/config}"
 
+# Шляхи томів не мають містити пробілів: rollback нижче перебирає їх
+# списком, а робити це надійно в POSIX sh без масивів — зайва складність
+# заради випадку, якого в цьому проєкті не буває.
 ARCHIVE="${1:-}"
 FORCE=0
 [ "${2:-}" = "--force" ] && FORCE=1
@@ -53,6 +56,17 @@ if [ "$FORCE" -eq 0 ]; then
     esac
 fi
 
+# Перевіряємо права ДО того, як щось чіпати: томи належать root, тож
+# найчастіша причина невдачі — запуск не через sudo.
+for parent in "$DATA_PARENT" "$CONF_PARENT"; do
+    if ! mkdir -p "$parent" 2>/dev/null || [ ! -w "$parent" ]; then
+        echo "Немає прав на запис у $parent." >&2
+        echo "Томи належать root — запусти скрипт через sudo:" >&2
+        echo "  sudo $0 $ARCHIVE" >&2
+        exit 1
+    fi
+done
+
 if command -v docker >/dev/null 2>&1; then
     if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || echo false)" = "true" ]; then
         echo "Зупиняю $CONTAINER..."
@@ -63,10 +77,33 @@ fi
 # Наявні каталоги відсуваємо вбік, а не видаляємо: якщо архів виявиться
 # не тим, буде куди повернутись. Прибрати їх — свідома дія людини потім.
 STAMP=$(date +%Y%m%d-%H%M%S)
+MOVED=""
+
+# Якщо розпакування впаде вже ПІСЛЯ того, як старі каталоги відсунуто,
+# система лишиться взагалі без даних: старих нема на місці, нових ще
+# нема. Тому повертаємо відсунуте назад на будь-якій невдачі — краще
+# лишитись зі станом «як було», ніж із порожнечею.
+rollback() {
+    status=$?
+    if [ "$status" -ne 0 ] && [ -n "$MOVED" ]; then
+        echo >&2
+        echo "Відновлення не вдалося — повертаю каталоги, як було." >&2
+        for dir in $MOVED; do
+            rm -rf "$dir"
+            if [ -d "$dir.before-restore-$STAMP" ]; then
+                mv "$dir.before-restore-$STAMP" "$dir" && echo "  повернуто $dir" >&2
+            fi
+        done
+    fi
+    return $status
+}
+trap rollback EXIT INT TERM
+
 for dir in "$DATA_VOLUME" "$CONF_VOLUME"; do
     if [ -d "$dir" ]; then
         echo "Відсуваю наявний $dir -> $dir.before-restore-$STAMP"
         mv "$dir" "$dir.before-restore-$STAMP"
+        MOVED="$MOVED $dir"
     fi
 done
 
@@ -89,6 +126,8 @@ echo "  місячних файлів графіка: $months"
 [ -f "$CONF_VOLUME/users.txt" ] \
     && echo "  users.txt на місці ($(grep -cv '^#' "$CONF_VOLUME/users.txt" || true) записів)" \
     || echo "  УВАГА: users.txt не знайдено — увійти буде неможливо, доки не створиш адміністратора"
+
+trap - EXIT INT TERM
 
 echo
 echo "Томи відновлено. Запусти застосунок:  ./dbuild"

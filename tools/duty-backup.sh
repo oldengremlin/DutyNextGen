@@ -52,12 +52,40 @@ for dir in "$DATA_VOLUME" "$CONF_VOLUME"; do
     fi
 done
 
+# Усе, що може завадити бекапу, перевіряємо ДО зупинки контейнера: інакше
+# сервіс лягає заради операції, яка все одно впаде на першому ж файлі.
+# Найчастіший випадок — запуск не від root: томи належать root (контейнер
+# працює від нього), а users.txt має права 600.
+unreadable=""
+for dir in "$DATA_VOLUME" "$CONF_VOLUME"; do
+    found=$(find "$dir" ! -readable -print -quit 2>/dev/null || true)
+    [ -n "$found" ] && unreadable="$unreadable  $found\n"
+done
+if [ -n "$unreadable" ]; then
+    printf 'Немає доступу на читання:\n' >&2
+    printf "$unreadable" >&2
+    echo "Томи належать root — запусти скрипт через sudo:" >&2
+    echo "  sudo DUTY_BACKUP_DIR=$BACKUP_DIR DUTY_BACKUP_COMPRESSION=$COMPRESSION $0" >&2
+    echo "(змінні саме ПІСЛЯ sudo — інакше він їх скине)" >&2
+    exit 1
+fi
+
+if ! mkdir -p "$BACKUP_DIR" 2>/dev/null; then
+    echo "Не вдалося створити каталог бекапів $BACKUP_DIR." >&2
+    echo "Задай інший через DUTY_BACKUP_DIR або запусти через sudo:" >&2
+    echo "  sudo DUTY_BACKUP_DIR=/шлях/до/бекапів $0" >&2
+    exit 1
+fi
+if [ ! -w "$BACKUP_DIR" ]; then
+    echo "Каталог $BACKUP_DIR недоступний для запису." >&2
+    exit 1
+fi
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 ARCHIVE="$BACKUP_DIR/duty-nextgen-$STAMP.tar.$COMPRESSION"
 
-mkdir -p "$BACKUP_DIR"
 # Архів містить bcrypt-хеші паролів і пароль CalDAV — не для чужих очей.
-chmod 700 "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR" 2>/dev/null || true
 
 was_running=0
 if [ "$LIVE" -eq 0 ] && command -v docker >/dev/null 2>&1; then
@@ -68,16 +96,25 @@ if [ "$LIVE" -eq 0 ] && command -v docker >/dev/null 2>&1; then
     fi
 fi
 
-# Запускаємо контейнер назад навіть якщо архівація впала на півдорозі —
-# інакше невдалий бекап лишив би сервіс лежати.
-restart_if_needed() {
+# Прибираємо за собою, хай би що пішло не так: контейнер має піднятись
+# назад (інакше невдалий бекап лишає сервіс лежати), а недороблений архів
+# — зникнути. Частковий архів небезпечніший за відсутній: він лежить у
+# каталозі бекапів, важить правдоподібно й виглядає як робочий, а
+# насправді в ньому бракує саме тих файлів, на яких tar спіткнувся.
+cleanup() {
+    status=$?
     if [ "$was_running" -eq 1 ]; then
         echo "Запускаю $CONTAINER назад..."
         docker start "$CONTAINER" >/dev/null || true
         was_running=0
     fi
+    if [ "$status" -ne 0 ] && [ -n "${ARCHIVE:-}" ] && [ -f "$ARCHIVE" ]; then
+        echo "Прибираю недороблений архів $ARCHIVE" >&2
+        rm -f "$ARCHIVE" "$ARCHIVE.sha256"
+    fi
+    return $status
 }
-trap restart_if_needed EXIT INT TERM
+trap cleanup EXIT INT TERM
 
 echo "Архівую $DATA_VOLUME і $CONF_VOLUME -> $ARCHIVE"
 # --numeric-owner: у контейнері застосунок працює від root, і власника
@@ -88,15 +125,32 @@ tar "c${TAR_FLAG}f" "$ARCHIVE" --numeric-owner \
     -C "$(dirname "$CONF_VOLUME")" "$(basename "$CONF_VOLUME")"
 chmod 600 "$ARCHIVE"
 
-restart_if_needed
-trap - EXIT INT TERM
+# Контейнер піднімаємо одразу після tar — далі йде лише перевірка архіву,
+# і тримати сервіс лежачим заради неї нема потреби.
+if [ "$was_running" -eq 1 ]; then
+    echo "Запускаю $CONTAINER назад..."
+    docker start "$CONTAINER" >/dev/null || true
+    was_running=0
+fi
 
 # Перевіряємо архів одразу: бекап, який не читається, гірший за
-# відсутній — на нього розраховують.
+# відсутній — на нього розраховують. Trap ще діє, тож биту перевірку
+# архів не переживе.
 echo "Перевіряю архів..."
 tar tf "$ARCHIVE" >/dev/null
 
+# Файли, які tar пропустив би через права, ми відсіяли до зупинки
+# контейнера — але переконаймося, що ключові справді в архіві.
+for must in users.txt; do
+    if ! tar tf "$ARCHIVE" | grep -q "/$must\$"; then
+        echo "В архіві нема $must — бекап неповний." >&2
+        exit 1
+    fi
+done
+
 ( cd "$BACKUP_DIR" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256" )
+
+trap - EXIT INT TERM
 
 echo
 echo "Готово: $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
