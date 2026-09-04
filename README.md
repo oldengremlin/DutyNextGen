@@ -1129,7 +1129,21 @@ git-журнал графіка ніяк не пов'язаний з репоз�
 ### Зробити бекап
 
 ```sh
-tools/duty-backup.sh
+sudo tools/duty-backup.sh
+```
+
+**Через `sudo`** — контейнер працює від `root`, тож і томи належать
+йому: `config/users.txt` має права `600 root`, і звичайний користувач
+його просто не прочитає. Скрипт перевіряє це на старті й, якщо доступу
+нема, каже про це до того, як щось робити, — а не падає посеред
+архівації.
+
+Друга пастка того ж роду: `sudo` скидає змінні середовища, тож задавати
+їх треба **після** нього, а не перед:
+
+```sh
+sudo DUTY_BACKUP_COMPRESSION=xz tools/duty-backup.sh     # так
+DUTY_BACKUP_COMPRESSION=xz sudo tools/duty-backup.sh     # змінна загубиться
 ```
 
 Скрипт зупиняє контейнер, пакує обидва томи в один
@@ -1146,11 +1160,11 @@ tools/duty-backup.sh
 Шляхи задаються змінними середовища (типові значення — з `dbuild`):
 
 ```sh
-DUTY_CONTAINER=duty-nextgen \
-DUTY_DATA_VOLUME=/safe/duty-nextgen/data \
-DUTY_CONF_VOLUME=/safe/duty-nextgen/config \
-DUTY_BACKUP_DIR=/safe/duty-nextgen/backups \
-    tools/duty-backup.sh
+sudo DUTY_CONTAINER=duty-nextgen \
+     DUTY_DATA_VOLUME=/safe/duty-nextgen/data \
+     DUTY_CONF_VOLUME=/safe/duty-nextgen/config \
+     DUTY_BACKUP_DIR=/safe/duty-nextgen/backups \
+     tools/duty-backup.sh
 ```
 
 Стиснення — `DUTY_BACKUP_COMPRESSION`: `gz` (типово, найшвидше й усюди
@@ -1158,10 +1172,11 @@ DUTY_BACKUP_DIR=/safe/duty-nextgen/backups \
 пакує довше). Відновлення визначає формат саме, за вмістом файлу:
 
 ```sh
-DUTY_BACKUP_COMPRESSION=xz tools/duty-backup.sh
+sudo DUTY_BACKUP_COMPRESSION=xz tools/duty-backup.sh
 ```
 
-Щоночі о 04:00 (після фонової генерації графіка о 03:00):
+Щоночі о 04:00 (після фонової генерації графіка о 03:00) — у **root**-cron
+(`sudo crontab -e`), з тієї ж причини:
 
 ```cron
 0 4 * * *  /шлях/до/DutyNextGen/tools/duty-backup.sh >> /var/log/duty-backup.log 2>&1
@@ -1184,7 +1199,7 @@ find /safe/duty-nextgen/backups -name 'duty-nextgen-*.tar.gz*' -mtime +30 -delet
 ### Розгорнути з бекапа
 
 ```sh
-tools/duty-restore.sh /safe/duty-nextgen/backups/duty-nextgen-20260904-031500.tar.gz
+sudo tools/duty-restore.sh /safe/duty-nextgen/backups/duty-nextgen-20260904-031500.tar.gz
 ./dbuild
 ```
 
@@ -1198,6 +1213,11 @@ tools/duty-restore.sh /safe/duty-nextgen/backups/duty-nextgen-20260904-031500.ta
 `users.txt`. Питає підтвердження перед перезаписом; `--force` пропускає
 питання (для скриптів).
 
+Якщо розпакування зірветься вже після того, як старі каталоги відсунуто
+(побитий архів, скінчилось місце), скрипт **повертає їх на місце** — щоб
+невдале відновлення не лишило систему взагалі без даних: старих уже нема,
+нових ще нема.
+
 Сам застосунок піднімається окремо — `./dbuild`. Скрипт відновлення
 навмисно не запускає контейнер: параметри запуску живуть в одному місці,
 і дублювати їх тут означало б мати два джерела правди.
@@ -1208,7 +1228,7 @@ tools/duty-restore.sh /safe/duty-nextgen/backups/duty-nextgen-20260904-031500.ta
 git clone https://github.com/oldengremlin/DutyNextGen.git
 cd DutyNextGen
 scp старий-сервер:/safe/duty-nextgen/backups/duty-nextgen-*.tar.gz /tmp/
-tools/duty-restore.sh /tmp/duty-nextgen-20260904-031500.tar.gz
+sudo tools/duty-restore.sh /tmp/duty-nextgen-20260904-031500.tar.gz
 ./dbuild
 ```
 
