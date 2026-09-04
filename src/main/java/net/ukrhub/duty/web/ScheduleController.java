@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.web;
 
 import net.ukrhub.duty.auth.Role;
@@ -24,17 +39,27 @@ public class ScheduleController {
     private final DutyScheduleRepository repository;
     private final String appVersion;
 
+    /**
+     * @param appVersion версія з {@code pom.xml} через Maven-фільтрацію
+     *        {@code application.yml} — показується у футері сторінки
+     */
     public ScheduleController(DutyScheduleRepository repository,
                                @Value("${app.version}") String appVersion) {
         this.repository = repository;
         this.appVersion = appVersion;
     }
 
+    /** Корінь застосунку веде на поточний місяць. */
     @GetMapping("/")
     public String home() {
         return "redirect:/schedule/" + MonthPath.format(YearMonth.now());
     }
 
+    /**
+     * Сторінка перегляду. Відсутній графік — не помилка, а порожня сторінка з
+     * навігацією: місяць може бути ще не згенерований, і користувач має мати
+     * змогу перейти на сусідній.
+     */
     @GetMapping("/schedule/{ym}")
     public String schedule(@PathVariable String ym, Model model, Authentication authentication) {
         YearMonth month = MonthPath.parse(ym);

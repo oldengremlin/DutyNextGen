@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.domain;
 
 /**
@@ -19,10 +34,15 @@ public enum DutyMark {
         this.code = code;
     }
 
+    /** Літера, якою позначка записується у файл графіка (успадковано від {@code tds.pl}). */
     public char code() {
         return code;
     }
 
+    /**
+     * Позначка за літерою з файлу. Невідома літера — {@link #OFF}: краще
+     * показати порожню клітинку, ніж упустити весь місяць через один символ.
+     */
     public static DutyMark fromChar(char c) {
         for (DutyMark m : values()) {
             if (m.code == c) {

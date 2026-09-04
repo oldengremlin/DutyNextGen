@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import java.io.IOException;
@@ -40,10 +55,22 @@ class CalDavClient {
         send(HttpRequest.newBuilder(uri).DELETE(), uri, "DELETE");
     }
 
+    /**
+     * Адреса ресурсу події: {@code <колекція>/<uid>.ics}. UID генерує
+     * {@link DutyIcsGenerator} з дати й номера інженера, тож він завжди
+     * безпечний для URL — стороннього тексту сюди не потрапляє.
+     */
     private URI eventUri(String uid) {
         return URI.create(baseUrl + "/" + uid + ".ics");
     }
 
+    /**
+     * Надсилає запит, за потреби повторивши його з {@code Authorization}.
+     * Перша спроба свідомо без облікових даних: сервер сам скаже, якої схеми
+     * він хоче ({@code WWW-Authenticate}), і рахувати Digest наосліп не треба.
+     *
+     * @throws IOException якщо схема автентифікації не підтримується або відповідь >= 300
+     */
     private void send(HttpRequest.Builder builder, URI uri, String method) throws IOException, InterruptedException {
         HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
 
@@ -51,7 +78,7 @@ class CalDavClient {
             String challenge = response.headers().firstValue("WWW-Authenticate").orElse(null);
             String auth = DigestAuth.authorizationHeader(challenge, method, uri.getRawPath(), user, password);
             if (auth == null) {
-                throw new IOException("CalDAV: сервер вимагає автентифікацію, якої клієнт не підтримує: " + challenge);
+                throw new IOException("CalDAV: server requires an authentication scheme the client does not support: " + challenge);
             }
             response = http.send(builder.setHeader("Authorization", auth).build(), HttpResponse.BodyHandlers.ofString());
         }

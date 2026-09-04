@@ -1,9 +1,26 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.schedule;
 
 import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.domain.Engineer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.DayOfWeek;
 import java.time.YearMonth;
@@ -35,13 +52,24 @@ import java.util.TreeMap;
  */
 public final class DutyScheduleFormat {
 
+    private static final Logger log = LoggerFactory.getLogger(DutyScheduleFormat.class);
+
     // Порядок відповідає Date::Calc::Day_of_Week_Abbreviation (1=Пн..7=Нд),
     // саме такі двобуквені скорочення писав tds.pl.
     private static final String[] DOW_ABBREV = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
 
+    /** Лише статичні методи. */
     private DutyScheduleFormat() {
     }
 
+    /**
+     * Розбирає вміст місячного файлу. Невідомі секції й нерозбірні рядки
+     * ігноруються, а не валять читання: місяць з одним битим рядком має
+     * відкриватись, показуючи решту цілком справних даних.
+     *
+     * @param month місяць, до якого належить файл — у самому файлі його нема,
+     *        він відомий лише з імені ({@code YYYYMM})
+     */
     public static DutySchedule parse(YearMonth month, String content) {
         List<Engineer> engineers = new ArrayList<>();
         List<DutyDay> days = new ArrayList<>();
@@ -92,6 +120,10 @@ public final class DutyScheduleFormat {
         }
     }
 
+    /**
+     * Id застосованого шаблону з секції {@code [ Tid ]}; нечисло — {@code null}
+     * (так само, як і повна відсутність секції у старих файлах).
+     */
     private static Integer parseTid(String line) {
         try {
             return Integer.parseInt(line.trim());
@@ -100,23 +132,57 @@ public final class DutyScheduleFormat {
         }
     }
 
+    /**
+     * Рядок секції {@code [ Names ]}: {@code номер:П.І.Б.:+}, де {@code +} —
+     * ознака «лише робочі дні». Рядок, що не починається з цифри — коментар
+     * чи заголовок таблиці, пропускаємо.
+     */
     private static void parseNameLine(String line, List<Engineer> engineers) {
         if (!Character.isDigit(line.charAt(0))) {
             return;
         }
         String[] parts = line.split(":", 3);
-        int number = Integer.parseInt(parts[0].trim());
+        Integer number = parseIntOrNull(parts[0].trim(), line);
+        if (number == null) {
+            return;
+        }
         String name = parts.length > 1 ? parts[1] : "";
         boolean onlyWorkdays = parts.length > 2 && parts[2].trim().equals("+");
         engineers.add(new Engineer(number, name, onlyWorkdays));
     }
 
+    /**
+     * Номер із рядка файлу, або {@code null} для нерозбірного. Один
+     * пошкоджений рядок (ручна правка з помилкою, обрізаний запис) не має
+     * валити читання ВСЬОГО місяця — інакше сторінка графіка й усе, що
+     * перебирає наявні місяці ({@code DutyExchangeService}), віддають 500
+     * замість решти цілком справних даних. Той самий підхід, що й у
+     * {@code UkrainianCalendar.dayOfWeekShort} для нерозпізнаного дня
+     * тижня, і в {@code parseTid} нижче.
+     */
+    private static Integer parseIntOrNull(String value, String line) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            log.warn("Skipping malformed schedule line: {}", line);
+            return null;
+        }
+    }
+
+    /**
+     * Рядок секції {@code [ Dates ]}: число, скорочення дня тижня (з {@code *}
+     * для свята) і по позначці на кожного адміністратора в порядку
+     * {@code [ Names ]}.
+     */
     private static void parseDayLine(String line, List<Engineer> engineers, List<DutyDay> days) {
         if (!Character.isDigit(line.charAt(0))) {
             return;
         }
         String[] tokens = line.trim().split("\\s+");
-        int day = Integer.parseInt(tokens[0]);
+        Integer day = parseIntOrNull(tokens[0], line);
+        if (day == null) {
+            return;
+        }
         String dowToken = tokens.length > 1 ? tokens[1] : "";
         // Державне свято/особливий день позначається "*" одразу після
         // скорочення дня тижня (напр. "1  Th*") — успадковано з index.pl.
@@ -126,6 +192,10 @@ public final class DutyScheduleFormat {
         days.add(new DutyDay(day, dowFor(dowAbbrev), holiday, marks));
     }
 
+    /**
+     * Рядок секції {@code [ LastDayN ]} — той самий набір позначок, що й у дні,
+     * але замість числа й дня тижня стоїть {@code -- --}.
+     */
     private static void parseTailLine(String line, List<Engineer> engineers, Map<Integer, DutyMark> out) {
         if (!line.startsWith("--")) {
             return;
@@ -134,6 +204,11 @@ public final class DutyScheduleFormat {
         out.putAll(marksFor(tokens, 2, engineers));
     }
 
+    /**
+     * Позначки по адміністраторах, позиційно: колонка {@code fromIndex + i}
+     * належить {@code i}-му адміністратору зі списку. Забракло колонок —
+     * {@link DutyMark#OFF} (рядок міг бути записаний до розширення ростеру).
+     */
     private static Map<Integer, DutyMark> marksFor(String[] tokens, int fromIndex, List<Engineer> engineers) {
         Map<Integer, DutyMark> marks = new LinkedHashMap<>();
         for (int i = 0; i < engineers.size(); i++) {
@@ -146,6 +221,10 @@ public final class DutyScheduleFormat {
         return marks;
     }
 
+    /**
+     * День тижня за двобуквеним скороченням {@code Date::Calc}; нерозпізнане —
+     * {@code null}, яке далі показується як «?» ({@code UkrainianCalendar}).
+     */
     private static DayOfWeek dowFor(String abbrev) {
         if (abbrev != null) {
             for (int i = 0; i < DOW_ABBREV.length; i++) {
@@ -157,6 +236,11 @@ public final class DutyScheduleFormat {
         return null;
     }
 
+    /**
+     * Записує графік у той самий текстовий формат, що й читає {@link #parse}.
+     * Без застарілого CVS-заголовка {@code $Id$} — єдина свідома відмінність
+     * від того, що писав {@code tds.pl}.
+     */
     public static String serialize(DutySchedule schedule) {
         StringBuilder sb = new StringBuilder();
 
@@ -193,6 +277,7 @@ public final class DutyScheduleFormat {
         return sb.toString();
     }
 
+    /** Секція {@code [ LastDayN ]}: заголовок і один рядок позначок. */
     private static void appendTailSection(StringBuilder sb, String title, List<Engineer> engineers,
                                            Map<Integer, DutyMark> marks) {
         sb.append("[ ").append(title).append(" ]\n");
@@ -204,6 +289,10 @@ public final class DutyScheduleFormat {
         sb.append('\n');
     }
 
+    /**
+     * Скорочення дня тижня для файлу; {@code null} (нерозпізнаний при читанні)
+     * записується як {@code ??}, щоб не вигадувати день, якого в даних не було.
+     */
     private static String abbrevFor(DayOfWeek dow) {
         return dow == null ? "??" : DOW_ABBREV[dow.getValue() - 1];
     }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import java.nio.charset.StandardCharsets;
@@ -28,6 +43,7 @@ final class DigestAuth {
     private static final Pattern PARAM = Pattern.compile("(\\w+)=\"([^\"]*)\"|(\\w+)=([^,\\s]+)");
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /** Лише статичні методи. */
     private DigestAuth() {
     }
 
@@ -76,6 +92,11 @@ final class DigestAuth {
         return header.toString();
     }
 
+    /**
+     * Параметри виклику ({@code realm}, {@code nonce}, {@code qop}, ...) — і в
+     * лапках, і без них: RFC дозволяє обидва написання, реальні сервери
+     * користуються обома.
+     */
     private static Map<String, String> parseParams(String challenge) {
         Map<String, String> result = new LinkedHashMap<>();
         Matcher m = PARAM.matcher(challenge);
@@ -89,18 +110,23 @@ final class DigestAuth {
         return result;
     }
 
+    /** Клієнтський nonce — випадковий на кожен запит, як вимагає {@code qop=auth}. */
     private static String cnonce() {
         byte[] bytes = new byte[8];
         RANDOM.nextBytes(bytes);
         return HexFormat.of().formatHex(bytes);
     }
 
+    /**
+     * MD5 — не вибір, а вимога протоколу Digest (RFC 2617); поза цим
+     * алгоритмом він у проєкті ніде не використовується.
+     */
     private static String md5(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");
             return HexFormat.of().formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("MD5 недоступний у цій JVM", e);
+            throw new IllegalStateException("MD5 is not available in this JVM", e);
         }
     }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.web;
 
 import net.ukrhub.duty.domain.DutyDay;
@@ -62,6 +77,11 @@ public class ScheduleGenerationController {
     private final RotationTemplateRepository templateRepository;
     private final DutyExchangeService exchangeService;
 
+    /**
+     * {@link DutyExchangeService} — щоб видалення місяців одразу анулювало
+     * пропозиції обміну, які на них спирались, а не чекало наступного
+     * accept/approve.
+     */
     public ScheduleGenerationController(DutyScheduleRepository repository, RotationTemplateRepository templateRepository,
                                          DutyExchangeService exchangeService) {
         this.repository = repository;
@@ -69,6 +89,12 @@ public class ScheduleGenerationController {
         this.exchangeService = exchangeService;
     }
 
+    /**
+     * Кнопка «Згенерувати наступний місяць». Далі — за деревом рішень з
+     * Javadoc класу: нуль шаблонів під поточне K — помилка, один — одразу
+     * генеруємо (а при невдалому пошуку фази ведемо на вибір зсуву), кілька —
+     * майстер вибору.
+     */
     @PostMapping("/schedule/{ym}/generate-next")
     public String generateNext(@PathVariable String ym, Principal principal, RedirectAttributes redirectAttributes) {
         YearMonth from = MonthPath.parse(ym);
@@ -164,6 +190,10 @@ public class ScheduleGenerationController {
         }
     }
 
+    /**
+     * Спільний фінал усіх шляхів генерації: зберегти новий місяць із
+     * виразним повідомленням коміту й показати його.
+     */
     private String generateAndSave(YearMonth from, DutySchedule generated, RotationTemplate template, Principal principal) {
         YearMonth target = from.plusMonths(1);
         String username = principal != null ? principal.getName() : "невідомий";
@@ -202,16 +232,34 @@ public class ScheduleGenerationController {
         return "redirect:/";
     }
 
+    /**
+     * Місяць, від якого генеруємо.
+     *
+     * @throws ResponseStatusException 404, якщо його нема
+     */
     private DutySchedule requireCurrent(YearMonth from, String ym) {
         return repository.find(from)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Немає графіка за " + ym));
     }
 
+    /**
+     * Шаблон за номером із параметра запиту.
+     *
+     * @throws ResponseStatusException 404, якщо його вже видалили
+     */
     private RotationTemplate requireTemplate(int templateId) {
         return templateRepository.find(templateId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Немає шаблону №" + templateId));
     }
 
+    /**
+     * Чи цільовий місяць уже існує; якщо так — готує повідомлення для
+     * користувача. Перегенерація через цю кнопку свідомо неможлива: спершу
+     * треба явно видалити наявний місяць, щоб випадково не затерти
+     * відредаговані вручну позначки.
+     *
+     * @return {@code true}, якщо генерувати не можна
+     */
     private boolean targetAlreadyExists(YearMonth from, String ym, RedirectAttributes redirectAttributes) {
         YearMonth target = from.plusMonths(1);
         if (!repository.exists(target)) {
@@ -222,10 +270,12 @@ public class ScheduleGenerationController {
         return true;
     }
 
+    /** Скільки в місяці чергових — саме це число й добирає шаблон. */
     private static int rotatingCount(DutySchedule schedule) {
         return (int) schedule.engineers().stream().filter(e -> !e.onlyWorkdays()).count();
     }
 
+    /** Шаблони, розраховані рівно на таку кількість чергових. */
     private List<RotationTemplate> templatesForSlots(int slots) {
         return templateRepository.findAll().stream().filter(t -> t.slots() == slots).toList();
     }
@@ -249,25 +299,50 @@ public class ScheduleGenerationController {
         return rows;
     }
 
+    /** Одна клітинка прев'ю: літера позначки, її колір і ознака вихідного. */
     private static PreviewCell cellFor(DutyDay day, Engineer e) {
         var mark = day.markFor(e.number());
         return new PreviewCell(day.day(), mark.code(), mark.cssClass(), day.isWeekend());
     }
 
+    /** Останні {@code count} днів (або менше, якщо їх стільки нема). */
     private static List<DutyDay> lastDays(List<DutyDay> days, int count) {
         return days.subList(Math.max(0, days.size() - count), days.size());
     }
 
+    /** Перші {@code count} днів (або менше, якщо їх стільки нема). */
     private static List<DutyDay> firstDays(List<DutyDay> days, int count) {
         return days.subList(0, Math.min(count, days.size()));
     }
 
+    /**
+     * Один варіант зсуву в майстрі генерації: з якого дня періоду почати й
+     * що з цього вийде.
+     *
+     * @param offset позиція в періоді шаблону (0-based)
+     * @param rows   прев'ю по рядку на кожного чергового
+     */
     public record OffsetOption(int offset, List<PreviewRow> rows) {
     }
 
+    /**
+     * Рядок прев'ю на одного чергового.
+     *
+     * @param engineerName П.І.Б. чергового
+     * @param tail         хвіст поточного місяця, як він є зараз
+     * @param head         початок того, що дасть цей зсув
+     */
     public record PreviewRow(String engineerName, List<PreviewCell> tail, List<PreviewCell> head) {
     }
 
+    /**
+     * Одна клітинка прев'ю — усе, що потрібно шаблону, щоб її намалювати.
+     *
+     * @param day      число місяця
+     * @param code     літера позначки, як у файлі
+     * @param cssClass клас для кольору позначки
+     * @param weekend  чи це субота/неділя (інший фон)
+     */
     public record PreviewCell(int day, char code, String cssClass, boolean weekend) {
     }
 }

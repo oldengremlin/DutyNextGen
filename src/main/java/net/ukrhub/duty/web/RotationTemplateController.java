@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.web;
 
 import net.ukrhub.duty.domain.RotationTemplate;
@@ -40,21 +55,34 @@ public class RotationTemplateController {
 
     private final RotationTemplateRepository repository;
 
+    /** Уся робота — з одним репозиторієм: шаблони ні від чого більше не залежать. */
     public RotationTemplateController(RotationTemplateRepository repository) {
         this.repository = repository;
     }
 
+    /** Список шаблонів із наочним прев'ю кожного. */
     @GetMapping
     public String list(Model model) {
         model.addAttribute("templates", repository.findAll());
         return "templates-list";
     }
 
+    /**
+     * Крок 1 створення — питаємо лише кількість чергових: {@code K} фіксується
+     * один раз, бо міняти її потім означало б домальовувати чи викидати цілі
+     * рядки вже намальованого патерну.
+     */
     @GetMapping("/new")
     public String newForm() {
         return "template-new";
     }
 
+    /**
+     * Крок 2: створює шаблон-заготовку на один день і веде в редактор.
+     *
+     * @throws ResponseStatusException 400, якщо кількість чергових поза межами
+     *         {@code MIN_SLOTS}..{@code MAX_SLOTS}
+     */
     @PostMapping
     public String create(@RequestParam int slots, Principal principal) {
         if (slots < MIN_SLOTS || slots > MAX_SLOTS) {
@@ -70,6 +98,7 @@ public class RotationTemplateController {
         return "redirect:/admin/templates/" + id + "/edit";
     }
 
+    /** Редактор шаблону — грід «слот × день періоду». */
     @GetMapping("/{id}/edit")
     public String edit(@PathVariable int id, Model model) {
         RotationTemplate template = require(id);
@@ -79,6 +108,14 @@ public class RotationTemplateController {
         return "template-edit";
     }
 
+    /**
+     * Зберігає назву й увесь грід позначок. Розмір гріда береться з ЗБЕРЕЖЕНОГО
+     * шаблону, а не з форми: інакше несвіжа вкладка (де період уже інший)
+     * мовчки обрізала б чи розтягувала патерн.
+     *
+     * @param allParams усі параметри форми — позначки приходять окремими полями
+     *        {@code mark_<слот>_<день>}, кількість яких залежить від шаблону
+     */
     @PostMapping("/{id}/edit")
     public String save(@PathVariable int id, @RequestParam String name,
                         @RequestParam Map<String, String> allParams, Principal principal) {
@@ -96,6 +133,7 @@ public class RotationTemplateController {
         return "redirect:/admin/templates/" + id + "/edit";
     }
 
+    /** Подовжує період на один день; новий день — «вихідний» у всіх слотах. */
     @PostMapping("/{id}/add-day")
     public String addDay(@PathVariable int id, Principal principal) {
         RotationTemplate existing = require(id);
@@ -104,6 +142,11 @@ public class RotationTemplateController {
         return "redirect:/admin/templates/" + id + "/edit";
     }
 
+    /**
+     * Скорочує період на останній день.
+     *
+     * @throws ResponseStatusException 400, якщо в шаблоні лишився один день
+     */
     @PostMapping("/{id}/remove-day")
     public String removeDay(@PathVariable int id, Principal principal) {
         RotationTemplate existing = require(id);
@@ -115,6 +158,11 @@ public class RotationTemplateController {
         return "redirect:/admin/templates/" + id + "/edit";
     }
 
+    /**
+     * Видаляє шаблон. Місяці, згенеровані ним, лишаються як є — у них
+     * зберігається лише номер, і фонова генерація просто пропустить наступний
+     * місяць із поясненням у лог.
+     */
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable int id, Principal principal) {
         require(id);
@@ -129,21 +177,35 @@ public class RotationTemplateController {
         return raw == 'D' || raw == 'W' ? raw : '-';
     }
 
+    /**
+     * Спільний запис для всіх дій редактора: зібрати запис і зберегти його з
+     * авторством того, хто натиснув.
+     */
     private void persist(int id, String name, List<String> rows, String message, Principal principal) {
         String username = username(principal);
         RotationTemplate template = new RotationTemplate(id, name, rows);
         repository.save(template, message + " (" + username + ")", username, username + "@duty.local");
     }
 
+    /**
+     * Ім'я для авторства git-коміту; {@code null}-принципал можливий лише в
+     * тестах — у застосунку жодна сторінка не відкривається без входу.
+     */
     private static String username(Principal principal) {
         return principal != null ? principal.getName() : "невідомий";
     }
 
+    /**
+     * Наявний шаблон.
+     *
+     * @throws ResponseStatusException 404, якщо його нема (видалили з іншої вкладки)
+     */
     private RotationTemplate require(int id) {
         return repository.find(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Немає шаблону №" + id));
     }
 
+    /** {@code 1..count} для {@code th:each} — Thymeleaf не має власного лічильника. */
     private static List<Integer> range(int count) {
         return IntStream.rangeClosed(1, count).boxed().toList();
     }

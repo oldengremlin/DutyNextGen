@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,10 +29,16 @@ public class CalDavSyncScheduler {
 
     private final CalDavSyncService syncService;
 
+    /** Уся робота — в сервісі; цей клас лише розклад. */
     public CalDavSyncScheduler(CalDavSyncService syncService) {
         this.syncService = syncService;
     }
 
+    /**
+     * Черговий прогін. {@code fixedDelay}, а не {@code fixedRate} — п'ять
+     * хвилин відлічуються від ЗАВЕРШЕННЯ попереднього прогону, тож повільний
+     * CalDAV-сервер не призведе до накладання прогонів один на одного.
+     */
     @Scheduled(fixedDelay = 300_000)
     public void sync() {
         syncService.syncRecentMonths();

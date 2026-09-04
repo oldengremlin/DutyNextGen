@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import net.ukrhub.duty.config.DutyProperties;
@@ -32,9 +47,18 @@ final class CaldavConfFile {
 
     private static final String FILE_NAME = "duty-caldav.conf";
 
+    /** Лише статичні методи. */
     private CaldavConfFile() {
     }
 
+    /**
+     * Читає {@code duty-caldav.conf}, якщо він є й читабельний. Порожній чи
+     * відсутній {@code CALDAV_BASE_URL} — те саме, що й відсутній файл:
+     * CalDAV просто не налаштовано.
+     *
+     * @param stateDir каталог стану синку з конфігурації застосунку — у самому
+     *        файлі його свідомо не читаємо (це шлях застарілого shell-скрипту)
+     */
     static Optional<DutyProperties.Caldav> readIfPresent(Path configDir, String stateDir) {
         Path file = configDir.resolve(FILE_NAME);
         if (!Files.isReadable(file)) {
@@ -55,7 +79,7 @@ final class CaldavConfFile {
                 values.put(trimmed.substring(0, eq).strip(), unquote(trimmed.substring(eq + 1).strip()));
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
         }
 
         String baseUrl = values.get("CALDAV_BASE_URL");
@@ -66,6 +90,7 @@ final class CaldavConfFile {
                 baseUrl, values.getOrDefault("CALDAV_USER", ""), values.getOrDefault("CALDAV_PASS", ""), stateDir));
     }
 
+    /** Знімає парні лапки навколо значення — файл сумісний з {@code . "$CONF"} у POSIX sh. */
     private static String unquote(String value) {
         if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\""))
                 || (value.startsWith("'") && value.endsWith("'")))) {

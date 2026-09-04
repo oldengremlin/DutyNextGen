@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import java.io.IOException;
@@ -21,9 +36,14 @@ final class CalDavSyncState {
 
     private static final DateTimeFormatter FILE_NAME = DateTimeFormatter.ofPattern("yyyyMM");
 
+    /** Лише статичні методи. */
     private CalDavSyncState() {
     }
 
+    /**
+     * Стан місяця: UID → хеш тіла. Відсутній файл — порожня мапа: усе
+     * опублікується як нове, що безпечно (PUT ідемпотентний за UID).
+     */
     static Map<String, String> read(Path stateDir, YearMonth month) {
         Path file = fileFor(stateDir, month);
         if (!Files.exists(file)) {
@@ -42,10 +62,11 @@ final class CalDavSyncState {
             }
             return result;
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
         }
     }
 
+    /** Перезаписує стан місяця цілком — часткового оновлення тут не буває. */
     static void write(Path stateDir, YearMonth month, Map<String, String> uidToHash) {
         Path file = fileFor(stateDir, month);
         try {
@@ -56,10 +77,11 @@ final class CalDavSyncState {
             }
             Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося записати " + file, e);
+            throw new UncheckedIOException("Failed to write " + file, e);
         }
     }
 
+    /** Один файл на місяць: {@code published-YYYYMM.txt}. */
     private static Path fileFor(Path stateDir, YearMonth month) {
         return stateDir.resolve("published-" + FILE_NAME.format(month) + ".txt");
     }

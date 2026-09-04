@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.schedule;
 
 import net.ukrhub.duty.domain.DutyDay;
@@ -50,6 +65,7 @@ public final class DutyScheduleGenerator {
 
     private static final DateTimeFormatter YM = DateTimeFormatter.ofPattern("yyyyMM");
 
+    /** Лише статичні методи. */
     private DutyScheduleGenerator() {
     }
 
@@ -109,14 +125,39 @@ public final class DutyScheduleGenerator {
         return generate(from, engineers, rotating, template, columns, offset);
     }
 
+    /**
+     * Адміністратори за номером — саме цей порядок задає відповідність «слот
+     * шаблону → людина», тож він має бути детермінованим, а не таким, як у файлі.
+     */
     private static List<Engineer> sortedEngineers(DutySchedule from) {
         return from.engineers().stream().sorted(Comparator.comparingInt(Engineer::number)).toList();
     }
 
+    /** Ті, хто бере участь у ротації — тобто всі, крім позначених «лише робочі дні». */
     private static List<Engineer> rotatingOf(List<Engineer> engineers) {
         return engineers.stream().filter(e -> !e.onlyWorkdays()).toList();
     }
 
+    /**
+     * Номер адміністратора → його слот у шаблоні. Порядок той самий, що й
+     * у {@code rotating} (за {@link Engineer#number()}) — просто заздалегідь
+     * і один раз, замість {@code rotating.indexOf(e)} усередині подвійного
+     * циклу «кожен день × кожен адміністратор».
+     */
+    private static Map<Integer, Integer> slotByNumber(List<Engineer> rotating) {
+        Map<Integer, Integer> slots = new LinkedHashMap<>();
+        for (int slot = 0; slot < rotating.size(); slot++) {
+            slots.put(rotating.get(slot).number(), slot);
+        }
+        return slots;
+    }
+
+    /**
+     * Кількість чергових має точно збігатися з кількістю слотів шаблону.
+     *
+     * @throws ScheduleGenerationException з поясненням для адміністратора —
+     *         мовчки вгадувати відповідність не можна: це production-графік
+     */
     private static void requireSlotsMatch(DutySchedule from, RotationTemplate template, List<Engineer> rotating) {
         if (rotating.size() != template.slots()) {
             throw new ScheduleGenerationException(
@@ -147,9 +188,10 @@ public final class DutyScheduleGenerator {
         Map<Integer, DutyMark> oneDayAgo = previousDays.size() >= 1
                 ? previousDays.get(previousDays.size() - 1).marks() : null;
 
+        Map<Integer, Integer> slotByNumber = slotByNumber(rotating);
         for (int day = 1; day <= daysInMonth; day++) {
             DayOfWeek dow = target.atDay(day).getDayOfWeek();
-            Map<Integer, DutyMark> marks = marksForDay(engineers, rotating, dow, columns[offset + day]);
+            Map<Integer, DutyMark> marks = marksForDay(engineers, slotByNumber, dow, columns[offset + day]);
             if (dow == DayOfWeek.MONDAY) {
                 applyWeekendDutyOverride(marks, rotating, twoDaysAgo, oneDayAgo);
             }
@@ -165,7 +207,7 @@ public final class DutyScheduleGenerator {
         // самий порядок, якого очікує пошук фази (findPhase).
         List<Map<Integer, DutyMark>> newTail = new ArrayList<>(template.slots());
         for (int i = template.slots() - 1; i >= 0; i--) {
-            newTail.add(rawMarksAt(engineers, rotating, columns[offset + daysInMonth - i]));
+            newTail.add(rawMarksAt(engineers, slotByNumber, columns[offset + daysInMonth - i]));
         }
 
         return new DutySchedule(target, engineers, days, newTail, template.id());
@@ -238,6 +280,11 @@ public final class DutyScheduleGenerator {
         return -1;
     }
 
+    /**
+     * Позначки чергових одного дня в рядок — у тому самому порядку, що й
+     * стовпці розтягнутого шаблону, щоб їх можна було просто порівняти
+     * рядок з рядком при пошуку фази.
+     */
     private static String joinMarks(Map<Integer, DutyMark> marks, List<Engineer> rotating) {
         StringBuilder sb = new StringBuilder(rotating.size());
         for (Engineer e : rotating) {
@@ -247,8 +294,8 @@ public final class DutyScheduleGenerator {
         return sb.toString();
     }
 
-    /** Позначки на конкретний день: onlyWorkdays — W/вихідний за днем тижня, чергові — за шаблоном (слот = позиція серед {@code rotating}). */
-    private static Map<Integer, DutyMark> marksForDay(List<Engineer> engineers, List<Engineer> rotating,
+    /** Позначки на конкретний день: onlyWorkdays — W/вихідний за днем тижня, чергові — за шаблоном ({@code slotByNumber}). */
+    private static Map<Integer, DutyMark> marksForDay(List<Engineer> engineers, Map<Integer, Integer> slotByNumber,
                                                         DayOfWeek dow, String column) {
         boolean weekend = dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
         Map<Integer, DutyMark> marks = new LinkedHashMap<>();
@@ -257,8 +304,7 @@ public final class DutyScheduleGenerator {
             if (e.onlyWorkdays()) {
                 mark = weekend ? DutyMark.OFF : DutyMark.WORK;
             } else {
-                int slot = rotating.indexOf(e);
-                mark = DutyMark.fromChar(column.charAt(slot));
+                mark = DutyMark.fromChar(column.charAt(slotByNumber.get(e.number())));
                 if (weekend && mark == DutyMark.WORK) {
                     mark = DutyMark.OFF;
                 }
@@ -273,14 +319,14 @@ public final class DutyScheduleGenerator {
      * (сирі значення шаблону) — onlyWorkdays завжди "-" (як і раніше), бо
      * для наступної генерації ці позначки все одно ігноруються.
      */
-    private static Map<Integer, DutyMark> rawMarksAt(List<Engineer> engineers, List<Engineer> rotating, String column) {
+    private static Map<Integer, DutyMark> rawMarksAt(List<Engineer> engineers, Map<Integer, Integer> slotByNumber,
+                                                       String column) {
         Map<Integer, DutyMark> marks = new LinkedHashMap<>();
         for (Engineer e : engineers) {
             if (e.onlyWorkdays()) {
                 marks.put(e.number(), DutyMark.OFF);
             } else {
-                int slot = rotating.indexOf(e);
-                marks.put(e.number(), DutyMark.fromChar(column.charAt(slot)));
+                marks.put(e.number(), DutyMark.fromChar(column.charAt(slotByNumber.get(e.number()))));
             }
         }
         return marks;

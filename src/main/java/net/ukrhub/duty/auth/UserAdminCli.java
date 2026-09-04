@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.auth;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -33,9 +48,20 @@ import java.util.Scanner;
  */
 public final class UserAdminCli {
 
+    /** Те саме обмеження, що й у веб-формі {@link UserAdminController} — щоб CLI не був лазівкою повз політику паролів. */
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
+    /** Лише статичні методи. */
     private UserAdminCli() {
     }
 
+    /**
+     * Створює перший (бутстрапний) обліковий запис і завершує процес кодом 1
+     * при будь-якій відмові — це CLI, а не веб-запит: краще виразний код
+     * повернення для скрипту, ніж виняток у stderr.
+     *
+     * @param args аргументи {@code main} цілком, де {@code args[1]} — ім'я користувача
+     */
     public static void addUser(String[] args) {
         if (args.length < 2 || args[1].isBlank()) {
             System.err.println("Використання: java -jar duty-nextgen.jar add-user <ім'я>");
@@ -43,6 +69,13 @@ public final class UserAdminCli {
             return;
         }
         String username = args[1];
+        try {
+            UserStore.requireStorable(username, "Ім'я користувача");
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+            return;
+        }
 
         String configDir = System.getenv().getOrDefault("DUTY_CONFIG_DIR", "./config");
         Path usersFile = Path.of(configDir, UserStore.USERS_FILE_NAME);
@@ -72,8 +105,8 @@ public final class UserAdminCli {
                 System.exit(1);
                 return;
             }
-            if (password.length == 0) {
-                System.err.println("Порожній пароль не дозволений.");
+            if (password.length < MIN_PASSWORD_LENGTH) {
+                System.err.println("Пароль має містити щонайменше " + MIN_PASSWORD_LENGTH + " символів.");
                 System.exit(1);
                 return;
             }
@@ -88,6 +121,13 @@ public final class UserAdminCli {
         }
     }
 
+    /**
+     * Пароль з консолі без відлуння; за відсутності консолі — звичайний рядок
+     * із прямим попередженням, що введене буде видно.
+     *
+     * @param fallbackScanner єдиний на весь запуск {@code Scanner} (див.
+     *        {@link #addUser}), або {@code null}, якщо консоль є
+     */
     private static char[] readSecret(String prompt, Scanner fallbackScanner) {
         Console console = System.console();
         if (console != null) {

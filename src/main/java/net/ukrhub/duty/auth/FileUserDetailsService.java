@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.auth;
 
 import net.ukrhub.duty.config.DutyProperties;
@@ -22,15 +37,28 @@ public class FileUserDetailsService implements UserDetailsService {
 
     private final Path usersFile;
 
+    /**
+     * Шлях до {@code users.txt} фіксується на старті; сам файл читається на
+     * кожен вхід (див. {@link #loadUserByUsername}), тож зміни через
+     * {@code /admin/users} діють одразу, без перезапуску.
+     */
     public FileUserDetailsService(DutyProperties properties) {
         this.usersFile = properties.configDirPath().resolve(UserStore.USERS_FILE_NAME);
     }
 
+    /**
+     * Читає {@code users.txt} на кожен запит автентифікації — без кешу
+     * навмисно: файл маленький, а зміна ролі чи пароля має діяти негайно,
+     * включно з видаленням щойно скомпрометованого облікового запису.
+     *
+     * @throws UsernameNotFoundException якщо такого користувача у файлі нема
+     *         (у тому числі коли файлу не існує взагалі)
+     */
     @Override
     public UserDetails loadUserByUsername(String username) {
         UserStore.StoredUser stored = UserStore.readUsers(usersFile).get(username);
         if (stored == null) {
-            throw new UsernameNotFoundException("Користувача не знайдено: " + username);
+            throw new UsernameNotFoundException("User not found: " + username);
         }
         return User.withUsername(username)
                 .password(stored.passwordHash())

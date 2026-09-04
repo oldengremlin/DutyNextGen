@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.domain;
 
 import java.util.List;
@@ -20,14 +35,17 @@ import java.util.List;
  */
 public record RotationTemplate(int id, String name, List<String> rows) {
 
+    /** Скільки чергових обслуговує шаблон — по рядку на кожного. */
     public int slots() {
         return rows.size();
     }
 
+    /** Довжина періоду в днях (довжина будь-якого рядка — вони однакові). */
     public int period() {
         return rows.isEmpty() ? 0 : rows.get(0).length();
     }
 
+    /** Позначка слота на {@code day}-й день періоду (0-based). */
     public DutyMark markAt(int slot, int day) {
         return DutyMark.fromChar(rows.get(slot).charAt(day));
     }

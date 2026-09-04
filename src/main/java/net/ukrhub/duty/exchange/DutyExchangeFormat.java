@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.exchange;
 
 import net.ukrhub.duty.domain.DutyExchangeProposal;
@@ -17,9 +32,17 @@ import java.util.List;
  */
 public final class DutyExchangeFormat {
 
+    /** Лише статичні методи. */
     private DutyExchangeFormat() {
     }
 
+    /**
+     * Розбирає файл пропозиції. Значення однорядкових секцій стоять у самому
+     * заголовку ({@code [ Status ] PENDING}), кроки — окремими рядками під
+     * {@code [ Steps ]}.
+     *
+     * @param id номер, узятий з імені файлу — у вмісті його нема
+     */
     public static DutyExchangeProposal parse(int id, String content) {
         String initiatorName = "";
         String initiatorUsername = "";
@@ -57,6 +80,12 @@ public final class DutyExchangeFormat {
         return new DutyExchangeProposal(id, initiatorName, initiatorUsername, counterpartName, steps, status, createdAt);
     }
 
+    /**
+     * Рядок кроку: {@code ТИП дата-ініціатора дата-колеги}.
+     *
+     * @throws IllegalArgumentException якщо рядок не такий — викликач
+     *         ({@code DutyExchangeRepository}) перехоплює це й пропускає файл
+     */
     private static DutyExchangeStep parseStep(String line) {
         String[] parts = line.split("\\s+");
         if (parts.length != 3) {
@@ -66,6 +95,7 @@ public final class DutyExchangeFormat {
         return new DutyExchangeStep(type, LocalDate.parse(parts[1]), LocalDate.parse(parts[2]));
     }
 
+    /** Записує пропозицію у той самий формат, що читає {@link #parse}. */
     public static String serialize(DutyExchangeProposal proposal) {
         StringBuilder sb = new StringBuilder();
         sb.append("[ Initiator ] ").append(proposal.initiatorName()).append('\n');

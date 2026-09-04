@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.template;
 
 import net.ukrhub.duty.domain.RotationTemplate;
@@ -15,9 +30,15 @@ import java.util.List;
  */
 public final class RotationTemplateFormat {
 
+    /** Лише статичні методи. */
     private RotationTemplateFormat() {
     }
 
+    /**
+     * Розбирає файл шаблону.
+     *
+     * @param id номер, узятий з імені файлу — у самому вмісті його нема
+     */
     public static RotationTemplate parse(int id, String content) {
         String name = "";
         List<String> rows = new ArrayList<>();
@@ -44,6 +65,7 @@ public final class RotationTemplateFormat {
         return new RotationTemplate(id, name, rows);
     }
 
+    /** Записує шаблон у той самий формат, що читає {@link #parse}. */
     public static String serialize(RotationTemplate template) {
         StringBuilder sb = new StringBuilder();
         sb.append("[ Name ]\n");

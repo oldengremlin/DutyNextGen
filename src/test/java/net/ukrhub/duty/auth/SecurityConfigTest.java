@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.auth;
 
 import org.junit.jupiter.api.Test;
@@ -55,5 +70,31 @@ class SecurityConfigTest {
                 .getForEntity("/", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * Заголовки, які застосунок має віддавати сам, а не покладатись на
+     * реверс-проксі: CSP (жодного зовнішнього походження, заборонені
+     * плагіни й вбудовування в чужий фрейм) і Referrer-Policy.
+     * HSTS навмисно вимкнено — TLS завершується на nginx, і задавати
+     * політику для всього домену має саме він.
+     */
+    @Test
+    void securityHeadersArePresent() {
+        Path usersFile = tempDir.resolve("config").resolve("users.txt");
+        String hash = new BCryptPasswordEncoder().encode("secret123");
+        UserStore.writeUser(usersFile, "headers", hash, Role.ADMIN);
+
+        ResponseEntity<String> response = restTemplate
+                .withBasicAuth("headers", "secret123")
+                .getForEntity("/", String.class);
+
+        assertThat(response.getHeaders().getFirst("Content-Security-Policy"))
+                .contains("default-src 'self'")
+                .contains("object-src 'none'")
+                .contains("frame-ancestors 'none'");
+        assertThat(response.getHeaders().getFirst("Referrer-Policy")).isEqualTo("same-origin");
+        assertThat(response.getHeaders().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(response.getHeaders().containsKey("Strict-Transport-Security")).isFalse();
     }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.caldav;
 
 import net.ukrhub.duty.domain.DutyDay;
@@ -52,9 +67,14 @@ public final class DutyIcsGenerator {
 
     private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    /** Лише статичні методи. */
     private DutyIcsGenerator() {
     }
 
+    /**
+     * Події за весь місяць — по одній на кожну активну позначку кожного
+     * інженера. {@link DutyMark#OFF} не публікується: «нічого» не подія.
+     */
     public static List<IcsEvent> generate(DutySchedule schedule) {
         List<IcsEvent> events = new ArrayList<>();
         for (DutyDay day : schedule.days()) {
@@ -70,6 +90,12 @@ public final class DutyIcsGenerator {
         return events;
     }
 
+    /**
+     * Одна подія: чергування 8:00–20:00, робочий день 9:00–17:30 (у п'ятницю
+     * до 17:00), відпустка/лікарняний/сесія — на весь день. Години
+     * успадковані від {@code duty2ics.pl} — саме такі події вже лежать у
+     * Baikal, і міняти їх означало б задублювати опубліковане.
+     */
     private static IcsEvent eventFor(LocalDate date, Engineer engineer, DutyMark mark) {
         String uid = "duty-" + YMD.format(date) + "-" + engineer.number() + "@duty.ukrhub.net";
         String dtstamp = YMD.format(date) + "T000000Z";
@@ -89,6 +115,7 @@ public final class DutyIcsGenerator {
         return new IcsEvent(uid, date, body);
     }
 
+    /** Подія з конкретним часом початку й кінця (чергування, робочий день). */
     private static String timedEvent(String uid, String dtstamp, LocalDate date, int startHour, int startMin,
                                       int endHour, int endMin, String summary, String category) {
         String dtstart = YMD.format(date) + "T" + hhmm(startHour, startMin) + "00";
@@ -96,6 +123,10 @@ public final class DutyIcsGenerator {
         return vcalendar(uid, dtstamp, "DTSTART:" + dtstart, "DTEND:" + dtend, summary, category);
     }
 
+    /**
+     * Подія на весь день. {@code DTEND} — наступна доба: за RFC 5545 верхня
+     * межа не включна, інакше клієнт показав би подію на день коротшою.
+     */
     private static String allDayEvent(String uid, String dtstamp, LocalDate date, String summary, String category) {
         String dtstart = YMD.format(date);
         String dtend = YMD.format(date.plusDays(1));
@@ -103,6 +134,10 @@ public final class DutyIcsGenerator {
                 summary, category);
     }
 
+    /**
+     * Обгортка {@code VCALENDAR}/{@code VEVENT} довкола вже готових рядків дат.
+     * CRLF, а не {@code \n} — цього прямо вимагає RFC 5545.
+     */
     private static String vcalendar(String uid, String dtstamp, String dtstartLine, String dtendLine,
                                      String summary, String category) {
         return "BEGIN:VCALENDAR\r\n"
@@ -119,6 +154,7 @@ public final class DutyIcsGenerator {
                 + "END:VCALENDAR\r\n";
     }
 
+    /** Час у форматі {@code HHMM} для рядків {@code DTSTART}/{@code DTEND}. */
     private static String hhmm(int hour, int minute) {
         return "%02d%02d".formatted(hour, minute);
     }

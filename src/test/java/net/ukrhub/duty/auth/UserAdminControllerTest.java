@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 olden.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package net.ukrhub.duty.auth;
 
 import org.junit.jupiter.api.Test;
@@ -214,5 +229,70 @@ class UserAdminControllerTest {
                 .andExpect(status().is3xxRedirection());
 
         assertThat(UserStore.readUsers(usersFile()).get("novyi2").linkedEngineer()).isEqualTo("Петров П.");
+    }
+
+    /**
+     * До появи політики паролів перевірялось лише "не порожній" — тобто
+     * пароль з однієї літери проходив. Basic-автентифікація не має ні
+     * обмеження спроб, ні затримки, тож такий пароль підбирається за
+     * секунди.
+     */
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void tooShortPasswordIsRejected() throws Exception {
+        mockMvc.perform(post("/admin/users/create")
+                        .with(csrf())
+                        .param("username", "korotkyi")
+                        .param("password", "a")
+                        .param("confirm", "a")
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("korotkyi")).isNull();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void tooShortPasswordIsRejectedOnResetToo() throws Exception {
+        UserStore.writeUser(usersFile(), "reset-target", "hash", Role.VIEWER);
+
+        mockMvc.perform(post("/admin/users/reset-target/password")
+                        .with(csrf())
+                        .param("password", "a")
+                        .param("confirm", "a"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("reset-target").passwordHash()).isEqualTo("hash");
+    }
+
+    /**
+     * Ім'я з роздільником полів розпалось би при наступному читанні
+     * users.txt на чужі поля (хеш + роль) — тобто дозволило б підняти собі
+     * права через форму створення користувача. Має бути зрозуміла відмова
+     * 400, а не 500 і не мовчазний запис.
+     */
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void usernameWithFieldSeparatorIsRejected() throws Exception {
+        mockMvc.perform(post("/admin/users/create")
+                        .with(csrf())
+                        .param("username", "zlyi:$2a$10$hash:ADMIN")
+                        .param("password", "secret123")
+                        .param("confirm", "secret123")
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void linkedEngineerWithFieldSeparatorIsRejected() throws Exception {
+        UserStore.writeUser(usersFile(), "link-target", "hash", Role.VIEWER);
+
+        mockMvc.perform(post("/admin/users/link-target/link")
+                        .with(csrf())
+                        .param("linkedEngineer", "Іванов І.:hash:ADMIN"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("link-target").linkedEngineer()).isNull();
     }
 }
