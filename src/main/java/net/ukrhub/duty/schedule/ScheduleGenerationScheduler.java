@@ -70,25 +70,26 @@ public class ScheduleGenerationScheduler {
         }
         DutySchedule current = repository.find(currentReal).orElse(null);
         if (current == null) {
-            log.warn("Немає графіка за поточний місяць {} — автогенерацію {} пропущено", currentReal, target);
+            log.warn("No schedule for the current month {} — automatic generation of {} skipped", currentReal, target);
             return;
         }
 
         if (current.tid() == null) {
-            log.warn("У графіка {} нема [ Tid ] (шаблон не застосовувався чи місяць старіший за цю функцію) — "
-                    + "автогенерацію {} пропущено, потрібне ручне «Згенерувати» з вибором шаблону", currentReal, target);
+            log.warn("Schedule {} has no [ Tid ] (no template was applied, or the month predates this feature) — "
+                    + "automatic generation of {} skipped, a manual generation with template choice is required",
+                    currentReal, target);
             return;
         }
         RotationTemplate template = templateRepository.find(current.tid()).orElse(null);
         if (template == null) {
-            log.warn("Шаблон №{} з [ Tid ] графіка {} більше не існує — автогенерацію {} пропущено",
-                    current.tid(), currentReal, target);
+            log.warn("Template #{} referenced by [ Tid ] of schedule {} no longer exists — "
+                    + "automatic generation of {} skipped", current.tid(), currentReal, target);
             return;
         }
         long rotatingCount = current.engineers().stream().filter(e -> !e.onlyWorkdays()).count();
         if (rotatingCount != template.slots()) {
-            log.warn("Кількість чергових у графіку {} ({}) розійшлася з шаблоном «{}» ({} слотів) — "
-                            + "автогенерацію {} пропущено, потрібне ручне «Згенерувати» з вибором шаблону",
+            log.warn("Number of rotating engineers in schedule {} ({}) diverged from template \"{}\" ({} slots) — "
+                            + "automatic generation of {} skipped, a manual generation with template choice is required",
                     currentReal, rotatingCount, template.name(), template.slots(), target);
             return;
         }
@@ -98,9 +99,9 @@ public class ScheduleGenerationScheduler {
             repository.save(generated, "Автоматично згенеровано графік " + target + " за шаблоном «"
                             + template.name() + "» (фонова задача)",
                     "duty-nextgen", "duty-nextgen@duty.local");
-            log.info("Автоматично згенеровано графік на {} за шаблоном «{}»", target, template.name());
+            log.info("Automatically generated the schedule for {} using template \"{}\"", target, template.name());
         } catch (ScheduleGenerationException e) {
-            log.warn("Не вдалося автоматично згенерувати графік на {}: {}", target, e.getMessage());
+            log.warn("Automatic generation of the schedule for {} failed", target, e);
         }
     }
 }

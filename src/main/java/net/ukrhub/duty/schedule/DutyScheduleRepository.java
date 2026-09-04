@@ -56,7 +56,7 @@ public class DutyScheduleRepository {
             String content = Files.readString(file, StandardCharsets.UTF_8);
             return Optional.of(DutyScheduleFormat.parse(month, content));
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
         }
     }
 
@@ -67,7 +67,7 @@ public class DutyScheduleRepository {
             Files.createDirectories(dataDir);
             Files.writeString(file, content, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося записати " + file, e);
+            throw new UncheckedIOException("Failed to write " + file, e);
         }
         gitCommitService.commit(dataDir, file, commitMessage, authorName, authorEmail);
     }
@@ -90,7 +90,7 @@ public class DutyScheduleRepository {
                     .sorted()
                     .toList();
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + dataDir, e);
+            throw new UncheckedIOException("Failed to read " + dataDir, e);
         }
     }
 

@@ -48,6 +48,9 @@ import java.util.Scanner;
  */
 public final class UserAdminCli {
 
+    /** Те саме обмеження, що й у веб-формі {@link UserAdminController} — щоб CLI не був лазівкою повз політику паролів. */
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
     private UserAdminCli() {
     }
 
@@ -58,6 +61,13 @@ public final class UserAdminCli {
             return;
         }
         String username = args[1];
+        try {
+            UserStore.requireStorable(username, "Ім'я користувача");
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+            return;
+        }
 
         String configDir = System.getenv().getOrDefault("DUTY_CONFIG_DIR", "./config");
         Path usersFile = Path.of(configDir, UserStore.USERS_FILE_NAME);
@@ -87,8 +97,8 @@ public final class UserAdminCli {
                 System.exit(1);
                 return;
             }
-            if (password.length == 0) {
-                System.err.println("Порожній пароль не дозволений.");
+            if (password.length < MIN_PASSWORD_LENGTH) {
+                System.err.println("Пароль має містити щонайменше " + MIN_PASSWORD_LENGTH + " символів.");
                 System.exit(1);
                 return;
             }

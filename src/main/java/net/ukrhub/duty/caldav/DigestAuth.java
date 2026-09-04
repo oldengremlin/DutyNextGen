@@ -115,7 +115,7 @@ final class DigestAuth {
             MessageDigest digest = MessageDigest.getInstance("MD5");
             return HexFormat.of().formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("MD5 недоступний у цій JVM", e);
+            throw new IllegalStateException("MD5 is not available in this JVM", e);
         }
     }
 }

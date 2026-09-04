@@ -151,4 +151,30 @@ class DutyScheduleFormatTest {
         ).subList(0, rotatingCount);
         return new DutySchedule(YearMonth.of(2030, 6), engineers, days, lastDays, tid);
     }
+
+    /**
+     * Один пошкоджений рядок (ручна правка з помилкою, обрізаний запис)
+     * раніше валив розбір ВСЬОГО місяця через NumberFormatException — тобто
+     * сторінка графіка й усе, що перебирає наявні місяці, віддавали 500
+     * замість решти цілком справних даних.
+     */
+    @Test
+    void malformedLinesAreSkippedInsteadOfBreakingWholeMonth() {
+        String content = String.join("\n",
+                "[ Names ]",
+                "1:Кулинич А.:",
+                "2x:зіпсований рядок:",
+                "2:Журавльова К.:",
+                "[ Dates ]",
+                "1  Th D W",
+                "хх Fr W D",
+                "3  Sa W D",
+                "");
+
+        DutySchedule schedule = DutyScheduleFormat.parse(YearMonth.of(2026, 1), content);
+
+        assertThat(schedule.engineers()).extracting(Engineer::name)
+                .containsExactly("Кулинич А.", "Журавльова К.");
+        assertThat(schedule.days()).extracting(DutyDay::day).containsExactly(1, 3);
+    }
 }

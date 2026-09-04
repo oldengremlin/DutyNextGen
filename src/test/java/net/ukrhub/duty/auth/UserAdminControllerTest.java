@@ -230,4 +230,69 @@ class UserAdminControllerTest {
 
         assertThat(UserStore.readUsers(usersFile()).get("novyi2").linkedEngineer()).isEqualTo("Петров П.");
     }
+
+    /**
+     * До появи політики паролів перевірялось лише "не порожній" — тобто
+     * пароль з однієї літери проходив. Basic-автентифікація не має ні
+     * обмеження спроб, ні затримки, тож такий пароль підбирається за
+     * секунди.
+     */
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void tooShortPasswordIsRejected() throws Exception {
+        mockMvc.perform(post("/admin/users/create")
+                        .with(csrf())
+                        .param("username", "korotkyi")
+                        .param("password", "a")
+                        .param("confirm", "a")
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("korotkyi")).isNull();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void tooShortPasswordIsRejectedOnResetToo() throws Exception {
+        UserStore.writeUser(usersFile(), "reset-target", "hash", Role.VIEWER);
+
+        mockMvc.perform(post("/admin/users/reset-target/password")
+                        .with(csrf())
+                        .param("password", "a")
+                        .param("confirm", "a"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("reset-target").passwordHash()).isEqualTo("hash");
+    }
+
+    /**
+     * Ім'я з роздільником полів розпалось би при наступному читанні
+     * users.txt на чужі поля (хеш + роль) — тобто дозволило б підняти собі
+     * права через форму створення користувача. Має бути зрозуміла відмова
+     * 400, а не 500 і не мовчазний запис.
+     */
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void usernameWithFieldSeparatorIsRejected() throws Exception {
+        mockMvc.perform(post("/admin/users/create")
+                        .with(csrf())
+                        .param("username", "zlyi:$2a$10$hash:ADMIN")
+                        .param("password", "secret123")
+                        .param("confirm", "secret123")
+                        .param("role", "VIEWER"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void linkedEngineerWithFieldSeparatorIsRejected() throws Exception {
+        UserStore.writeUser(usersFile(), "link-target", "hash", Role.VIEWER);
+
+        mockMvc.perform(post("/admin/users/link-target/link")
+                        .with(csrf())
+                        .param("linkedEngineer", "Іванов І.:hash:ADMIN"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(UserStore.readUsers(usersFile()).get("link-target").linkedEngineer()).isNull();
+    }
 }

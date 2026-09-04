@@ -73,30 +73,45 @@ public class DutyExchangeService {
         this.gitCommitService = gitCommitService;
     }
 
+    /**
+     * Усі наявні місяці від поточного й далі, прочитані рівно по одному
+     * разу. Кожен виклик {@code scheduleRepository.find} — це читання й
+     * повний розбір текстового файлу; сторінка обміну питає розклад
+     * кілька разів поспіль (свої дати, дати колеги, перевірка кроків), і
+     * без спільного знімка той самий файл розбирався б знову й знову.
+     */
+    private Map<YearMonth, DutySchedule> upcomingSchedules() {
+        Map<YearMonth, DutySchedule> schedules = new LinkedHashMap<>();
+        for (YearMonth month : scheduleRepository.existingMonthsFrom(YearMonth.now())) {
+            scheduleRepository.find(month).ifPresent(schedule -> schedules.put(month, schedule));
+        }
+        return schedules;
+    }
+
     /** Чергові інженери (не "лише робочі дні"), які фігурують хоч в одному з наявних майбутніх місяців. */
     public List<String> rotationEngineerNames() {
         Set<String> names = new LinkedHashSet<>();
-        for (YearMonth month : scheduleRepository.existingMonthsFrom(YearMonth.now())) {
-            scheduleRepository.find(month).ifPresent(schedule -> schedule.engineers().stream()
+        for (DutySchedule schedule : upcomingSchedules().values()) {
+            schedule.engineers().stream()
                     .filter(e -> !e.onlyWorkdays())
-                    .forEach(e -> names.add(e.name())));
+                    .forEach(e -> names.add(e.name()));
         }
         return List.copyOf(names);
     }
 
     /** Дати {@code engineerName} з позначкою D чи W, строго в майбутньому, по всіх наявних місяцях. */
     public List<DutySwappableDate> datesFor(String engineerName) {
-        Set<LocalDate> locked = lockedDates(engineerName, null);
+        Set<LocalDate> locked = lockedDates(engineerName, null, exchangeRepository.findAll());
         LocalDate today = LocalDate.now();
         List<DutySwappableDate> result = new ArrayList<>();
-        for (YearMonth month : scheduleRepository.existingMonthsFrom(YearMonth.now())) {
-            DutySchedule schedule = scheduleRepository.find(month).orElseThrow();
+        for (var entry : upcomingSchedules().entrySet()) {
+            DutySchedule schedule = entry.getValue();
             Optional<Engineer> engineer = rotationEngineer(schedule, engineerName);
             if (engineer.isEmpty()) {
                 continue;
             }
             for (DutyDay day : schedule.days()) {
-                LocalDate date = month.atDay(day.day());
+                LocalDate date = entry.getKey().atDay(day.day());
                 if (!date.isAfter(today)) {
                     continue;
                 }
@@ -120,6 +135,45 @@ public class DutyExchangeService {
         return exchangeRepository.findAll().stream()
                 .filter(p -> p.status() == DutyExchangeStatus.ACCEPTED)
                 .toList();
+    }
+
+    /**
+     * Скільки пропозицій обміну потребує уваги цього користувача — для
+     * бейджа біля посилання на {@code /exchange}
+     * ({@code DutyExchangeNoticeAdvice}). Рахує за ОДИН прохід по сховищу:
+     * бейдж малюється на кожній сторінці застосунку, а роздільні
+     * {@code pendingAdminApproval()} + {@code proposalsFor()} означали два
+     * повних обходи каталогу з розбором кожного файлу на КОЖЕН запит,
+     * включно з переглядом графіка, який до обміну взагалі не має
+     * стосунку.
+     *
+     * @param engineerName П.І.Б. інженера, до якого прив'язаний користувач,
+     *                     або {@code null}, якщо прив'язки нема
+     * @param isAdmin      чи додавати сюди ще й чергу на затвердження
+     */
+    public int attentionCountFor(String engineerName, boolean isAdmin) {
+        int count = 0;
+        for (DutyExchangeProposal proposal : exchangeRepository.findAll()) {
+            if (isAdmin && proposal.status() == DutyExchangeStatus.ACCEPTED) {
+                count++;
+                continue;
+            }
+            if (engineerName == null || !isParty(proposal, engineerName)) {
+                continue;
+            }
+            boolean awaitingMyDecision = proposal.status() == DutyExchangeStatus.PENDING
+                    && proposal.counterpartName().equals(engineerName);
+            boolean unreadOutcome = !proposal.status().active();
+            if (awaitingMyDecision || unreadOutcome) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Чи бере {@code engineerName} участь у пропозиції — байдуже, як ініціатор чи як колега. */
+    private static boolean isParty(DutyExchangeProposal proposal, String engineerName) {
+        return proposal.initiatorName().equals(engineerName) || proposal.counterpartName().equals(engineerName);
     }
 
     public DutyExchangeProposal propose(String initiatorName, String initiatorUsername,
@@ -193,9 +247,7 @@ public class DutyExchangeService {
     /** Прибирає завершену пропозицію зі списку — після того, як сторона побачила банер із результатом. */
     public void acknowledge(int id, String actingUsername, String actingEngineerName) {
         DutyExchangeProposal proposal = requireProposal(id);
-        boolean isParty = proposal.initiatorName().equals(actingEngineerName)
-                || proposal.counterpartName().equals(actingEngineerName);
-        if (!isParty) {
+        if (!isParty(proposal, actingEngineerName)) {
             throw new DutyExchangeValidationException("Ця дія не для вас");
         }
         if (proposal.status().active()) {
@@ -244,15 +296,21 @@ public class DutyExchangeService {
         if (initiatorName.equals(counterpartName)) {
             throw new DutyExchangeValidationException("Не можна пропонувати обмін самому собі");
         }
-        Set<LocalDate> initiatorLocked = lockedDates(initiatorName, excludeProposalId);
-        Set<LocalDate> counterpartLocked = lockedDates(counterpartName, excludeProposalId);
+        List<DutyExchangeProposal> existing = exchangeRepository.findAll();
+        Set<LocalDate> initiatorLocked = lockedDates(initiatorName, excludeProposalId, existing);
+        Set<LocalDate> counterpartLocked = lockedDates(counterpartName, excludeProposalId, existing);
+        // Кроки однієї пропозиції майже завжди в одному-двох місяцях —
+        // читаємо кожен файл графіка один раз на всю перевірку, а не по
+        // два рази на КОЖЕН крок, як було доти.
+        Map<YearMonth, DutySchedule> schedules = new LinkedHashMap<>();
         for (DutyExchangeStep step : steps) {
-            validateStep(initiatorName, counterpartName, step, initiatorLocked, counterpartLocked);
+            validateStep(initiatorName, counterpartName, step, initiatorLocked, counterpartLocked, schedules);
         }
     }
 
     private void validateStep(String initiatorName, String counterpartName, DutyExchangeStep step,
-                               Set<LocalDate> initiatorLocked, Set<LocalDate> counterpartLocked) {
+                               Set<LocalDate> initiatorLocked, Set<LocalDate> counterpartLocked,
+                               Map<YearMonth, DutySchedule> schedules) {
         LocalDate today = LocalDate.now();
         if (!step.initiatorDate().isAfter(today) || !step.counterpartDate().isAfter(today)) {
             throw new DutyExchangeValidationException("Дати обміну мають бути в майбутньому");
@@ -263,15 +321,14 @@ public class DutyExchangeService {
         if (counterpartLocked.contains(step.counterpartDate())) {
             throw new DutyExchangeValidationException("Дата " + step.counterpartDate() + " вже задіяна в іншій пропозиції");
         }
-        checkCell(initiatorName, step.initiatorDate(), step.type(), counterpartName);
-        checkCell(counterpartName, step.counterpartDate(), step.type(), initiatorName);
+        checkCell(initiatorName, step.initiatorDate(), step.type(), counterpartName, schedules);
+        checkCell(counterpartName, step.counterpartDate(), step.type(), initiatorName, schedules);
     }
 
     /** На {@code date}: у {@code ownerName} має стояти саме {@code expectedType}, а "хрестова" клітинка {@code otherName} — безпечна для передачі (W/OFF, не O/I/S). */
-    private void checkCell(String ownerName, LocalDate date, DutyMark expectedType, String otherName) {
-        YearMonth month = YearMonth.from(date);
-        DutySchedule schedule = scheduleRepository.find(month)
-                .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + month));
+    private void checkCell(String ownerName, LocalDate date, DutyMark expectedType, String otherName,
+                            Map<YearMonth, DutySchedule> schedules) {
+        DutySchedule schedule = scheduleAt(schedules, YearMonth.from(date));
         Engineer owner = requireRotationEngineer(schedule, ownerName);
         Engineer other = requireRotationEngineer(schedule, otherName);
         DutyDay day = requireDay(schedule, date.getDayOfMonth());
@@ -288,9 +345,20 @@ public class DutyExchangeService {
         }
     }
 
-    private Set<LocalDate> lockedDates(String engineerName, Integer excludeProposalId) {
+    /**
+     * Дати {@code engineerName}, уже задіяні в іншій активній пропозиції.
+     * Список пропозицій приймається готовим, а не читається тут: викликач
+     * зазвичай перевіряє відразу обидві сторони обміну, і кожне таке
+     * читання — повний обхід каталогу з розбором усіх файлів.
+     *
+     * @param excludeProposalId пропозиція, яку не враховувати (перевірка
+     *                          пропозиції на саму себе при повторній
+     *                          валідації), або {@code null}
+     */
+    private Set<LocalDate> lockedDates(String engineerName, Integer excludeProposalId,
+                                        List<DutyExchangeProposal> proposals) {
         Set<LocalDate> locked = new HashSet<>();
-        for (DutyExchangeProposal proposal : exchangeRepository.findAll()) {
+        for (DutyExchangeProposal proposal : proposals) {
             if (!proposal.status().active()) {
                 continue;
             }
@@ -322,7 +390,7 @@ public class DutyExchangeService {
             try {
                 Files.writeString(file, DutyScheduleFormat.serialize(entry.getValue()), StandardCharsets.UTF_8);
             } catch (IOException e) {
-                throw new UncheckedIOException("Не вдалося записати " + file, e);
+                throw new UncheckedIOException("Failed to write " + file, e);
             }
             touchedFiles.add(file);
         }
@@ -334,8 +402,7 @@ public class DutyExchangeService {
 
     private void swapOnDate(Map<YearMonth, DutySchedule> working, LocalDate date, String initiatorName, String counterpartName) {
         YearMonth month = YearMonth.from(date);
-        DutySchedule schedule = working.computeIfAbsent(month, m -> scheduleRepository.find(m)
-                .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + m)));
+        DutySchedule schedule = scheduleAt(working, month);
         int initiatorNumber = requireRotationEngineer(schedule, initiatorName).number();
         int counterpartNumber = requireRotationEngineer(schedule, counterpartName).number();
         working.put(month, withSwappedMarks(schedule, date.getDayOfMonth(), initiatorNumber, counterpartNumber));
@@ -355,6 +422,18 @@ public class DutyExchangeService {
         marks.put(engineerA, markB);
         marks.put(engineerB, markA);
         return new DutyDay(day.day(), day.dow(), day.holiday(), marks);
+    }
+
+    /**
+     * Графік місяця з переданого знімка, дочитуючи його з диска лише при
+     * першому зверненні. Спільний і для перевірки кроків
+     * ({@link #checkCell}), і для їх застосування ({@link #swapOnDate}) —
+     * там знімок ще й накопичує вже змінені графіки, які потім ідуть на
+     * запис одним комітом.
+     */
+    private DutySchedule scheduleAt(Map<YearMonth, DutySchedule> schedules, YearMonth month) {
+        return schedules.computeIfAbsent(month, m -> scheduleRepository.find(m)
+                .orElseThrow(() -> new DutyExchangeValidationException("Немає графіка за " + m)));
     }
 
     private Optional<Engineer> rotationEngineer(DutySchedule schedule, String name) {

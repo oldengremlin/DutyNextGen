@@ -19,6 +19,8 @@ import net.ukrhub.duty.domain.DutyDay;
 import net.ukrhub.duty.domain.DutyMark;
 import net.ukrhub.duty.domain.DutySchedule;
 import net.ukrhub.duty.domain.Engineer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.DayOfWeek;
 import java.time.YearMonth;
@@ -49,6 +51,8 @@ import java.util.TreeMap;
  * штатно, не помилка.
  */
 public final class DutyScheduleFormat {
+
+    private static final Logger log = LoggerFactory.getLogger(DutyScheduleFormat.class);
 
     // Порядок відповідає Date::Calc::Day_of_Week_Abbreviation (1=Пн..7=Нд),
     // саме такі двобуквені скорочення писав tds.pl.
@@ -120,10 +124,31 @@ public final class DutyScheduleFormat {
             return;
         }
         String[] parts = line.split(":", 3);
-        int number = Integer.parseInt(parts[0].trim());
+        Integer number = parseIntOrNull(parts[0].trim(), line);
+        if (number == null) {
+            return;
+        }
         String name = parts.length > 1 ? parts[1] : "";
         boolean onlyWorkdays = parts.length > 2 && parts[2].trim().equals("+");
         engineers.add(new Engineer(number, name, onlyWorkdays));
+    }
+
+    /**
+     * Номер із рядка файлу, або {@code null} для нерозбірного. Один
+     * пошкоджений рядок (ручна правка з помилкою, обрізаний запис) не має
+     * валити читання ВСЬОГО місяця — інакше сторінка графіка й усе, що
+     * перебирає наявні місяці ({@code DutyExchangeService}), віддають 500
+     * замість решти цілком справних даних. Той самий підхід, що й у
+     * {@code UkrainianCalendar.dayOfWeekShort} для нерозпізнаного дня
+     * тижня, і в {@code parseTid} нижче.
+     */
+    private static Integer parseIntOrNull(String value, String line) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            log.warn("Skipping malformed schedule line: {}", line);
+            return null;
+        }
     }
 
     private static void parseDayLine(String line, List<Engineer> engineers, List<DutyDay> days) {
@@ -131,7 +156,10 @@ public final class DutyScheduleFormat {
             return;
         }
         String[] tokens = line.trim().split("\\s+");
-        int day = Integer.parseInt(tokens[0]);
+        Integer day = parseIntOrNull(tokens[0], line);
+        if (day == null) {
+            return;
+        }
         String dowToken = tokens.length > 1 ? tokens[1] : "";
         // Державне свято/особливий день позначається "*" одразу після
         // скорочення дня тижня (напр. "1  Th*") — успадковано з index.pl.

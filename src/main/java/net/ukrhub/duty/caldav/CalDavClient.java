@@ -66,7 +66,7 @@ class CalDavClient {
             String challenge = response.headers().firstValue("WWW-Authenticate").orElse(null);
             String auth = DigestAuth.authorizationHeader(challenge, method, uri.getRawPath(), user, password);
             if (auth == null) {
-                throw new IOException("CalDAV: сервер вимагає автентифікацію, якої клієнт не підтримує: " + challenge);
+                throw new IOException("CalDAV: server requires an authentication scheme the client does not support: " + challenge);
             }
             response = http.send(builder.setHeader("Authorization", auth).build(), HttpResponse.BodyHandlers.ofString());
         }

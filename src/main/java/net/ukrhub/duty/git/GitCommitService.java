@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
@@ -47,6 +48,12 @@ public class GitCommitService {
 
     private static final Logger log = LoggerFactory.getLogger(GitCommitService.class);
     private static final DateTimeFormatter GIT_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z");
+
+    /** ASCII RS — межа між комітами у вивод і {@code git log --patch} ({@link #history}). */
+    private static final String RECORD_SEPARATOR = "\u001E";
+
+    /** ASCII US — межа між полями заголовка коміту (те саме, що {@code %x1f} у pretty-format). */
+    private static final String UNIT_SEPARATOR = "\u001F";
 
     /**
      * Абсолютний шлях замість голого {@code "git"}: спостережено в
@@ -163,8 +170,8 @@ public class GitCommitService {
         try {
             run(dataDir, restoreCommand);
         } catch (RuntimeException restoreFailure) {
-            log.error("Не вдалося відновити {} у {} після невдалого коміту видалення — "
-                    + "потрібне ручне втручання (git checkout HEAD -- ...)", relativePaths, dataDir, restoreFailure);
+            log.error("Failed to restore {} in {} after a failed deletion commit — "
+                    + "manual recovery required (git checkout HEAD -- ...)", relativePaths, dataDir, restoreFailure);
         }
     }
 
@@ -175,39 +182,58 @@ public class GitCommitService {
      */
     public List<CommitInfo> history(Path dataDir, Path file) {
         String relativePath = dataDir.relativize(file).toString();
+        // Один git-процес на всю історію разом з діффами, а не "git log"
+        // плюс окремий "git show" на кожен коміт: у файлу, який редагують
+        // кілька разів на місяць, за пару років набігають сотні комітів —
+        // тобто сотні fork+exec на одне відкриття сторінки історії, у
+        // середовищі, де сам спавн git-процесу вже показав себе ненадійним
+        // (див. startWithRetry нижче). RECORD_SEPARATOR перед %H дає
+        // однозначну межу записів: діфф може містити будь-що, зокрема й
+        // рядки, схожі на заголовок коміту.
         ProcessResult logResult = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
-                "log", "--follow", "--date=iso-strict", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s",
+                "log", "--follow", "--date=iso-strict", "--patch", "--no-color",
+                "--pretty=format:" + RECORD_SEPARATOR + "%H%x1f%an%x1f%ad%x1f%s",
                 "--", relativePath), null, null, null);
         if (logResult.exitCode() != 0) {
             return List.of();
         }
 
         List<CommitInfo> commits = new ArrayList<>();
-        for (String line : logResult.output().split("\n")) {
-            if (line.isBlank()) {
-                continue;
+        for (String record : logResult.output().split(RECORD_SEPARATOR)) {
+            CommitInfo commit = parseHistoryRecord(record);
+            if (commit != null) {
+                commits.add(commit);
             }
-            String[] parts = line.split("\u001F", 4);
-            if (parts.length < 4) {
-                continue;
-            }
-            String hash = parts[0];
-            commits.add(new CommitInfo(hash, parts[1], parts[2], parts[3], diffFor(dataDir, hash, relativePath)));
         }
         return commits;
     }
 
-    private String diffFor(Path dataDir, String hash, String relativePath) {
-        ProcessResult result = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
-                "show", "--pretty=format:", hash, "--", relativePath), null, null, null);
-        return result.exitCode() == 0 ? result.output().strip() : "";
+    /**
+     * Один запис виводу {@code git log --patch}: перший рядок — заголовок
+     * з полями через {@code \u001F} (той самий {@code %x1f} з
+     * pretty-format), решта — діфф саме цього коміту.
+     *
+     * @return {@code null}, якщо запис порожній чи заголовок неповний
+     *         (перший «запис» перед першим роздільником — завжди порожній)
+     */
+    private static CommitInfo parseHistoryRecord(String record) {
+        if (record.isBlank()) {
+            return null;
+        }
+        String[] headerAndDiff = record.split("\n", 2);
+        String[] fields = headerAndDiff[0].split(UNIT_SEPARATOR, 4);
+        if (fields.length < 4) {
+            return null;
+        }
+        String diff = headerAndDiff.length > 1 ? headerAndDiff[1].strip() : "";
+        return new CommitInfo(fields[0], fields[1], fields[2], fields[3], diff);
     }
 
     private void ensureRepo(Path dataDir) {
         try {
             java.nio.file.Files.createDirectories(dataDir);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося створити каталог даних " + dataDir, e);
+            throw new UncheckedIOException("Failed to create data directory " + dataDir, e);
         }
 
         ProcessResult check = execute(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(),
@@ -216,7 +242,7 @@ public class GitCommitService {
             return;
         }
 
-        log.info("У {} немає git-репозиторію — ініціалізую новий (типово для окремого зовнішнього тому)", dataDir);
+        log.info("No git repository in {} — initializing a new one (expected for a separate external volume)", dataDir);
         run(dataDir, List.of(GIT_EXECUTABLE, "-C", dataDir.toString(), "init", "--quiet"));
     }
 
@@ -227,7 +253,7 @@ public class GitCommitService {
     private void run(Path cwd, List<String> command, String authorName, String authorEmail, String gitDate) {
         ProcessResult result = execute(cwd, command, authorName, authorEmail, gitDate);
         if (result.exitCode() != 0) {
-            throw new IllegalStateException("Команда %s завершилась з кодом %d: %s"
+            throw new IllegalStateException("Command %s exited with code %d: %s"
                     .formatted(command, result.exitCode(), result.output()));
         }
     }
@@ -248,10 +274,10 @@ public class GitCommitService {
             return;
         }
         if (result.output().contains("nothing to commit") || result.output().contains("nothing added to commit")) {
-            log.debug("Немає реальних змін для коміту в {} — пропускаю ({})", cwd, command);
+            log.debug("Nothing to commit in {} — skipping ({})", cwd, command);
             return;
         }
-        throw new IllegalStateException("Команда %s завершилась з кодом %d: %s"
+        throw new IllegalStateException("Command %s exited with code %d: %s"
                 .formatted(command, result.exitCode(), result.output()));
     }
 
@@ -271,14 +297,18 @@ public class GitCommitService {
             }
 
             Process process = startWithRetry(pb, command);
-            String output = new String(process.getInputStream().readAllBytes());
+            // Явно UTF-8, а не дефолтне кодування JVM: git віддає кириличні
+            // імена авторів і повідомлення комітів саме в ньому, і читати їх
+            // "як вийде" — та сама помилка, від якої конструктор вище
+            // захищає на боці запису.
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             int exitCode = process.waitFor();
             return new ProcessResult(exitCode, output);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося виконати " + command, e);
+            throw new UncheckedIOException("Failed to execute " + command, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Перервано під час виконання " + command, e);
+            throw new IllegalStateException("Interrupted while executing " + command, e);
         }
     }
 
@@ -305,7 +335,7 @@ public class GitCommitService {
                 return pb.start();
             } catch (IOException e) {
                 last = e;
-                log.warn("Спроба {} запустити {} не вдалась: {}", attempt, command, e.getMessage());
+                log.warn("Attempt {} to start {} failed: {}", attempt, command, e.getMessage());
                 if (attempt == START_ATTEMPTS) {
                     break;
                 }

@@ -68,9 +68,21 @@ public class CalDavSyncService {
     private final DutyScheduleRepository repository;
     private final DutyProperties.Caldav config;
 
+    /**
+     * Один клієнт на весь час життя сервісу. Раніше створювався заново на
+     * кожен місяць у кожному прогоні — тобто три штуки кожні п'ять хвилин
+     * ({@code CalDavSyncScheduler}), а всередині кожного сидить власний
+     * {@code HttpClient} зі своїм селектором і пулом потоків. Налаштування
+     * CalDAV незмінні від старту застосунку, тож і клієнт може бути один;
+     * заразом зберігається пул з'єднань між місяцями. {@code null}, якщо
+     * CalDAV не налаштовано — тоді синк і не запускається.
+     */
+    private final CalDavClient client;
+
     public CalDavSyncService(DutyScheduleRepository repository, DutyProperties properties) {
         this.repository = repository;
         this.config = resolveConfig(properties);
+        this.client = configured() ? new CalDavClient(config.baseUrl(), config.user(), config.password()) : null;
     }
 
     private static DutyProperties.Caldav resolveConfig(DutyProperties properties) {
@@ -81,7 +93,7 @@ public class CalDavSyncService {
         String stateDir = fromEnv != null ? fromEnv.stateDir() : null;
         Optional<DutyProperties.Caldav> fromFile = CaldavConfFile.readIfPresent(properties.configDirPath(), stateDir);
         if (fromFile.isPresent()) {
-            log.info("CalDAV налаштовано з {}/duty-caldav.conf", properties.configDirPath());
+            log.info("CalDAV configured from {}/duty-caldav.conf", properties.configDirPath());
             return fromFile.get();
         }
         return fromEnv;
@@ -111,7 +123,6 @@ public class CalDavSyncService {
         List<IcsEvent> events = DutyIcsGenerator.generate(schedule);
         Map<String, String> oldState = CalDavSyncState.read(config.stateDirPath(), month);
         Map<String, String> newState = new LinkedHashMap<>();
-        CalDavClient client = new CalDavClient(config.baseUrl(), config.user(), config.password());
 
         for (IcsEvent event : events) {
             String hash = sha256(event.body());
@@ -123,7 +134,7 @@ public class CalDavSyncService {
                 client.put(event.uid(), event.body());
                 newState.put(event.uid(), hash);
             } catch (IOException | InterruptedException e) {
-                log.warn("Не вдалося опублікувати {} у CalDAV: {}", event.uid(), e.getMessage());
+                log.warn("Failed to publish {} to CalDAV: {}", event.uid(), e.getMessage());
                 // Лишаємо попередній стан (якщо був) — наступний прогін спробує ще раз.
                 if (oldState.containsKey(event.uid())) {
                     newState.put(event.uid(), oldState.get(event.uid()));
@@ -138,7 +149,7 @@ public class CalDavSyncService {
             try {
                 client.delete(uid);
             } catch (IOException | InterruptedException e) {
-                log.warn("Не вдалося видалити {} з CalDAV: {}", uid, e.getMessage());
+                log.warn("Failed to delete {} from CalDAV: {}", uid, e.getMessage());
                 newState.put(uid, oldState.get(uid));
             }
         }
@@ -152,7 +163,7 @@ public class CalDavSyncService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 недоступний у цій JVM", e);
+            throw new IllegalStateException("SHA-256 is not available in this JVM", e);
         }
     }
 }

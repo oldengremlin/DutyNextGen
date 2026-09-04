@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -95,5 +96,37 @@ class DutyExchangeRepositoryTest {
 
         assertThat(tempDir.resolve("exchanges").resolve("1")).doesNotExist();
         assertThat(repository.find(1)).isEmpty();
+    }
+
+    /**
+     * Один пошкоджений файл пропозиції не має валити все сховище:
+     * findAll() читає і сторінка /exchange, і DutyExchangeNoticeAdvice —
+     * а той висить @ControllerAdvice-ом на КОЖНІЙ сторінці застосунку,
+     * тож виняток звідси означав 500 на будь-якому URL, включно з
+     * переглядом графіка.
+     */
+    @Test
+    void malformedFileIsSkippedInsteadOfBreakingFindAll(@TempDir Path tempDir) throws IOException {
+        DutyExchangeRepository repository = repositoryIn(tempDir);
+        repository.save(proposal(1), "тестовий коміт", "Тест Тестович", "test@example.com");
+        Files.writeString(tempDir.resolve("exchanges").resolve("2"),
+                "[ Status ] ЩОСЬ-НЕ-ТЕ\n[ Steps ]\nсміття\n");
+
+        assertThat(repository.findAll()).extracting(DutyExchangeProposal::id).containsExactly(1);
+        assertThat(repository.find(2)).isEmpty();
+    }
+
+    /**
+     * nextId() рахується за іменами файлів, а не за розібраним вмістом:
+     * інакше пропущений (пошкоджений) файл віддав би вже зайнятий id, і
+     * наступна пропозиція мовчки затерла б його.
+     */
+    @Test
+    void nextIdSkipsPastMalformedFileInsteadOfReusingItsId(@TempDir Path tempDir) throws IOException {
+        DutyExchangeRepository repository = repositoryIn(tempDir);
+        Files.createDirectories(tempDir.resolve("exchanges"));
+        Files.writeString(tempDir.resolve("exchanges").resolve("7"), "сміття\n");
+
+        assertThat(repository.nextId()).isEqualTo(8);
     }
 }

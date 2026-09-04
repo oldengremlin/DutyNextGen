@@ -18,6 +18,8 @@ package net.ukrhub.duty.template;
 import net.ukrhub.duty.config.DutyProperties;
 import net.ukrhub.duty.domain.RotationTemplate;
 import net.ukrhub.duty.git.GitCommitService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
@@ -42,6 +44,8 @@ import java.util.Optional;
  */
 @Repository
 public class RotationTemplateRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(RotationTemplateRepository.class);
 
     private static final String FILE_NAME_PATTERN = "\\d+";
 
@@ -73,7 +77,7 @@ public class RotationTemplateRepository {
                     .sorted(Comparator.comparingInt(RotationTemplate::slots).thenComparingInt(RotationTemplate::id))
                     .toList();
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + templatesDir, e);
+            throw new UncheckedIOException("Failed to read " + templatesDir, e);
         }
     }
 
@@ -82,11 +86,20 @@ public class RotationTemplateRepository {
         if (!Files.exists(file)) {
             return Optional.empty();
         }
+        String content;
         try {
-            String content = Files.readString(file, StandardCharsets.UTF_8);
-            return Optional.of(RotationTemplateFormat.parse(id, content));
+            content = Files.readString(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
+        }
+        try {
+            return Optional.of(RotationTemplateFormat.parse(id, content));
+        } catch (RuntimeException e) {
+            // Той самий підхід, що й у DutyExchangeRepository: пошкоджений
+            // файл шаблону пропускаємо з гучним записом у лог, а не валимо
+            // весь список шаблонів і майстер генерації разом з ним.
+            log.error("Skipping malformed rotation template file {}", file, e);
+            return Optional.empty();
         }
     }
 
@@ -97,7 +110,7 @@ public class RotationTemplateRepository {
             Files.createDirectories(templatesDir);
             Files.writeString(file, content, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося записати " + file, e);
+            throw new UncheckedIOException("Failed to write " + file, e);
         }
         gitCommitService.commit(templatesDir, file, commitMessage, authorName, authorEmail);
     }
@@ -106,8 +119,25 @@ public class RotationTemplateRepository {
         gitCommitService.delete(templatesDir, List.of(fileFor(id)), commitMessage, authorName, authorEmail);
     }
 
+    /**
+     * Наступний вільний id — за іменами файлів, без розбору їхнього
+     * вмісту: id це і є ім'я файлу. Той самий мотив, що й у
+     * {@code DutyExchangeRepository.nextId()} — і дешевше, і не віддає
+     * зайнятий id, коли якийсь файл не вдалося розібрати.
+     */
     public int nextId() {
-        return findAll().stream().mapToInt(RotationTemplate::id).max().orElse(0) + 1;
+        if (!Files.isDirectory(templatesDir)) {
+            return 1;
+        }
+        try (var files = Files.list(templatesDir)) {
+            return files
+                    .map(p -> p.getFileName().toString())
+                    .filter(name -> name.matches(FILE_NAME_PATTERN))
+                    .mapToInt(Integer::parseInt)
+                    .max().orElse(0) + 1;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + templatesDir, e);
+        }
     }
 
     private Path fileFor(int id) {

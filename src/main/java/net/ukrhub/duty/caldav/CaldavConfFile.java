@@ -70,7 +70,7 @@ final class CaldavConfFile {
                 values.put(trimmed.substring(0, eq).strip(), unquote(trimmed.substring(eq + 1).strip()));
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
         }
 
         String baseUrl = values.get("CALDAV_BASE_URL");

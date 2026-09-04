@@ -191,7 +191,7 @@ public class DutyExchangeController {
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
         } catch (UncheckedIOException | IllegalStateException e) {
-            log.warn("Не вдалося застосувати git-коміт для пропозиції обміну", e);
+            log.warn("Git commit failed while creating an exchange proposal", e);
             redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
@@ -226,7 +226,7 @@ public class DutyExchangeController {
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
         } catch (UncheckedIOException | IllegalStateException e) {
-            log.warn("Не вдалося застосувати git-коміт для затвердження обміну #{}", id, e);
+            log.warn("Git commit failed while approving exchange proposal #{}", id, e);
             redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
@@ -239,7 +239,7 @@ public class DutyExchangeController {
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
         } catch (UncheckedIOException | IllegalStateException e) {
-            log.warn("Не вдалося застосувати git-коміт для відхилення обміну #{}", id, e);
+            log.warn("Git commit failed while rejecting exchange proposal #{}", id, e);
             redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";
@@ -260,7 +260,7 @@ public class DutyExchangeController {
         } catch (DutyExchangeValidationException e) {
             redirectAttributes.addFlashAttribute("exchangeError", e.getMessage());
         } catch (UncheckedIOException | IllegalStateException e) {
-            log.warn("Не вдалося застосувати git-коміт для дії над пропозицією обміну #{}", id, e);
+            log.warn("Git commit failed while acting on exchange proposal #{}", id, e);
             redirectAttributes.addFlashAttribute("exchangeError", GIT_FAILURE_MESSAGE);
         }
         return "redirect:/exchange";

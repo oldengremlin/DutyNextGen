@@ -57,7 +57,7 @@ final class CalDavSyncState {
             }
             return result;
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося прочитати " + file, e);
+            throw new UncheckedIOException("Failed to read " + file, e);
         }
     }
 
@@ -71,7 +71,7 @@ final class CalDavSyncState {
             }
             Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Не вдалося записати " + file, e);
+            throw new UncheckedIOException("Failed to write " + file, e);
         }
     }
 

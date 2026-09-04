@@ -23,10 +23,12 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 import java.io.IOException;
 
@@ -55,9 +57,40 @@ import java.io.IOException;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    /**
+     * Content-Security-Policy. {@code 'unsafe-inline'} для скриптів і
+     * стилів лишається свідомо: сторінки містять inline-обробники
+     * ({@code onsubmit="return confirm(...)"} на кнопках видалення) та
+     * inline-атрибути {@code style} — переписувати їх заради строгішої
+     * політики тут нема сенсу, весь HTML однаково генерує Thymeleaf з
+     * автоекрануванням, стороннього вводу в розмітку не потрапляє.
+     * Цінність саме цього рядка — в решті директив: жодного зовнішнього
+     * походження ({@code default-src 'self'}), заборонені плагіни
+     * ({@code object-src 'none'}), підміна бази посилань
+     * ({@code base-uri 'self'}), відправка форм назовні
+     * ({@code form-action 'self'}) і вбудовування сторінки в чужий фрейм
+     * ({@code frame-ancestors 'none'} — те саме, що вже дає
+     * {@code X-Frame-Options: DENY} за замовчуванням, але в сучасному
+     * вигляді).
+     */
+    private static final String CONTENT_SECURITY_POLICY =
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+            + "img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; "
+            + "frame-ancestors 'none'";
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                        // HSTS вимикаємо навмисно: TLS завершується на
+                        // реверс-проксі (nginx), і саме він — єдине місце,
+                        // де цей заголовок має сенс задавати; застосунок
+                        // за проксі бачить звичайний http і нав'язав би
+                        // політику для всього домену від свого імені.
+                        .httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.springRole())
                         .requestMatchers("/schedule/*/generate-next/**").hasRole(Role.ADMIN.springRole())

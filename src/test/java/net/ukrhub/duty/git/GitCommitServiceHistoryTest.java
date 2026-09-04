@@ -78,4 +78,57 @@ class GitCommitServiceHistoryTest {
 
         assertThat(service.history(dataDir, file)).hasSize(1);
     }
+
+    /**
+     * Історія читається одним git-процесом ({@code git log --patch}), а не
+     * "git log" плюс "git show" на кожен коміт. Розбір мусить лишати діффи
+     * рознесеними по своїх комітах — саме тому записи розділяє ASCII RS,
+     * а не збіг за форматом заголовка.
+     */
+    @Test
+    void historyKeepsDiffsPerCommitAcrossManyCommits(@TempDir Path tempDir) throws IOException {
+        GitCommitService service = new GitCommitService();
+        Path dataDir = tempDir.resolve("data");
+        Path file = dataDir.resolve("203401");
+        Files.createDirectories(dataDir);
+
+        for (int i = 1; i <= 5; i++) {
+            Files.writeString(file, "версія " + i + "\n", StandardCharsets.UTF_8);
+            service.commit(dataDir, file, "коміт " + i, "Автор " + i, "author" + i + "@example.com");
+        }
+
+        List<CommitInfo> history = service.history(dataDir, file);
+
+        assertThat(history).hasSize(5);
+        assertThat(history).extracting(CommitInfo::message)
+                .containsExactly("коміт 5", "коміт 4", "коміт 3", "коміт 2", "коміт 1");
+        assertThat(history.get(0).diff()).contains("+версія 5").doesNotContain("+версія 3");
+        assertThat(history.get(2).diff()).contains("+версія 3").doesNotContain("+версія 5");
+        assertThat(history).allSatisfy(commit -> assertThat(commit.hash()).hasSize(40));
+    }
+
+    /**
+     * Вміст файлу графіка може містити що завгодно, зокрема й рядок,
+     * схожий на заголовок коміту. Такий рядок має лишитись частиною
+     * діффа, а не з'їхати в окремий "коміт".
+     */
+    @Test
+    void contentResemblingCommitHeaderStaysInsideDiff(@TempDir Path tempDir) throws IOException {
+        GitCommitService service = new GitCommitService();
+        Path dataDir = tempDir.resolve("data");
+        Path file = dataDir.resolve("203401");
+        Files.createDirectories(dataDir);
+
+        Files.writeString(file, "звичайний рядок\n", StandardCharsets.UTF_8);
+        service.commit(dataDir, file, "перший", "Автор", "author@example.com");
+        Files.writeString(file, "звичайний рядок\nffffffffffffffffffffffffffffffffffffffffХтось2026-01-01підробка\n",
+                StandardCharsets.UTF_8);
+        service.commit(dataDir, file, "другий", "Автор", "author@example.com");
+
+        List<CommitInfo> history = service.history(dataDir, file);
+
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).message()).isEqualTo("другий");
+        assertThat(history.get(0).diff()).contains("підробка");
+    }
 }

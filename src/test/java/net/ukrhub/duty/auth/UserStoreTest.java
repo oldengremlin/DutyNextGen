@@ -20,10 +20,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class UserStoreTest {
 
@@ -104,5 +108,66 @@ class UserStoreTest {
         var users = UserStore.readUsers(usersFile);
         assertThat(users).containsKey("keep");
         assertThat(users).doesNotContainKey("drop");
+    }
+
+    /**
+     * users.txt містить bcrypt-хеші паролів — читати його має право лише
+     * власник. Без явного звуження прав файл лягає з поточним umask
+     * (типово rw-r--r--), тобто хеші видно будь-якому процесу в контейнері
+     * й будь-кому з доступом до змонтованого тому /config.
+     */
+    @Test
+    void usersFileIsWrittenOwnerReadableOnly(@TempDir Path tempDir) throws IOException {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"),
+                "POSIX-права доступні не на всіх файлових системах");
+        Path usersFile = tempDir.resolve("users.txt");
+
+        UserStore.writeUser(usersFile, "noc", "hash1", Role.ADMIN);
+
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(usersFile)))
+                .isEqualTo("rw-------");
+    }
+
+    /**
+     * Роздільник полів у імені перетворив би один рядок на кілька полів
+     * при наступному читанні — тобто дозволив би записом "у поле імені"
+     * підсунути чужий хеш і роль ADMIN. Відмовляємо на записі.
+     */
+    @Test
+    void rejectsUsernameContainingFieldSeparator(@TempDir Path tempDir) {
+        Path usersFile = tempDir.resolve("users.txt");
+
+        assertThatThrownBy(() -> UserStore.writeUser(usersFile, "noc:hash:ADMIN", "hash1", Role.VIEWER))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ім'я користувача");
+        assertThat(Files.exists(usersFile)).isFalse();
+    }
+
+    @Test
+    void rejectsLinkedEngineerContainingNewline(@TempDir Path tempDir) {
+        Path usersFile = tempDir.resolve("users.txt");
+
+        assertThatThrownBy(() ->
+                UserStore.writeUser(usersFile, "noc", "hash1", Role.VIEWER, "Іванов І.\nfake:hash:ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Невідома роль у файлі (ручна правка з помилкою) раніше кидала
+     * виняток просто з парсера — тобто один битий рядок робив
+     * автентифікацію недоступною ДЛЯ ВСІХ. Тепер такий рядок понижується
+     * до найменш привілейованої ролі, а решта користувачів читається як
+     * завжди.
+     */
+    @Test
+    void unknownRoleFallsBackToViewerWithoutBreakingOtherUsers(@TempDir Path tempDir) throws IOException {
+        Path usersFile = tempDir.resolve("users.txt");
+        Files.writeString(usersFile, "broken:hash-broken:SUPERUSER:\nnoc:hash-noc:ADMIN:\n",
+                StandardCharsets.UTF_8);
+
+        var users = UserStore.readUsers(usersFile);
+
+        assertThat(users.get("broken").role()).isEqualTo(Role.VIEWER);
+        assertThat(users.get("noc").role()).isEqualTo(Role.ADMIN);
     }
 }

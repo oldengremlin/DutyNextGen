@@ -18,14 +18,10 @@ package net.ukrhub.duty.web;
 import net.ukrhub.duty.auth.Role;
 import net.ukrhub.duty.auth.RoleCheck;
 import net.ukrhub.duty.auth.UserLinkService;
-import net.ukrhub.duty.domain.DutyExchangeProposal;
-import net.ukrhub.duty.domain.DutyExchangeStatus;
 import net.ukrhub.duty.exchange.DutyExchangeService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
-
-import java.util.Optional;
 
 /**
  * Глобальний лічильник "скільки в обміні чергуваннями потребує моєї
@@ -46,28 +42,27 @@ public class DutyExchangeNoticeAdvice {
         this.userLinkService = userLinkService;
     }
 
+    /**
+     * Значення бейджа для поточного запиту. Весь підрахунок — один прохід
+     * по сховищу пропозицій ({@code DutyExchangeService.attentionCountFor}):
+     * цей {@code @ModelAttribute} виконується на КОЖНОМУ запиті до
+     * застосунку, тож ціна зайвого обходу каталогу тут множиться на все,
+     * що користувач узагалі відкриває.
+     *
+     * @return скільки пропозицій чекає на цього користувача; 0 для
+     *         неавтентифікованого запиту й для того, хто ні до кого не
+     *         прив'язаний і не адміністратор
+     */
     @ModelAttribute("pendingExchangeCount")
     public int pendingExchangeCount(Authentication authentication) {
         if (authentication == null) {
             return 0;
         }
-        int count = 0;
-        if (RoleCheck.has(authentication, Role.ADMIN)) {
-            count += exchangeService.pendingAdminApproval().size();
+        boolean isAdmin = RoleCheck.has(authentication, Role.ADMIN);
+        String engineer = userLinkService.linkedEngineerOf(authentication.getName()).orElse(null);
+        if (!isAdmin && engineer == null) {
+            return 0;
         }
-
-        Optional<String> engineer = userLinkService.linkedEngineerOf(authentication.getName());
-        if (engineer.isEmpty()) {
-            return count;
-        }
-        for (DutyExchangeProposal proposal : exchangeService.proposalsFor(engineer.get())) {
-            boolean awaitingMyDecision = proposal.status() == DutyExchangeStatus.PENDING
-                    && proposal.counterpartName().equals(engineer.get());
-            boolean unreadOutcome = !proposal.status().active();
-            if (awaitingMyDecision || unreadOutcome) {
-                count++;
-            }
-        }
-        return count;
+        return exchangeService.attentionCountFor(engineer, isAdmin);
     }
 }

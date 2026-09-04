@@ -46,6 +46,15 @@ import java.util.TreeMap;
 @Controller
 public class UserAdminController {
 
+    /**
+     * Мінімальна довжина пароля. Раніше перевірялось лише "не порожній" —
+     * тобто пароль з однієї літери проходив, а Basic-автентифікація не має
+     * ні обмеження спроб, ні затримки: підбір такого пароля — питання
+     * секунд. Вісім символів — компроміс між NIST SP 800-63B (мінімум 8)
+     * і тим, що пароль тут вводить людина, а не менеджер паролів.
+     */
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
     private final Path usersFile;
     private final PasswordEncoder passwordEncoder;
     private final DutyScheduleRepository scheduleRepository;
@@ -88,21 +97,55 @@ public class UserAdminController {
                           @RequestParam String confirm, @RequestParam Role role,
                           @RequestParam(required = false) String linkedEngineer) {
         username = username.strip();
-        if (username.isBlank() || !password.equals(confirm) || password.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Ім'я не може бути порожнім, паролі мають збігатися й бути непорожніми");
+        if (username.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ім'я не може бути порожнім");
         }
+        requirePasswordPair(password, confirm);
         if (UserStore.readUsers(usersFile).containsKey(username)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Користувач '" + username + "' вже існує");
         }
-        UserStore.writeUser(usersFile, username, passwordEncoder.encode(password), role, normalizeLink(linkedEngineer));
+        String link = normalizeLink(linkedEngineer);
+        requireStorable(username, "Ім'я користувача");
+        requireStorable(link, "Ім'я прив'язаного інженера");
+        UserStore.writeUser(usersFile, username, passwordEncoder.encode(password), role, link);
         return "redirect:/admin/users";
+    }
+
+    /**
+     * Пара "пароль + підтвердження" з форми. Мінімальна довжина —
+     * {@link #MIN_PASSWORD_LENGTH}; та сама перевірка і при створенні
+     * користувача, і при скиданні пароля, щоб слабкий пароль не можна було
+     * протягнути через другу форму в обхід першої.
+     */
+    private static void requirePasswordPair(String password, String confirm) {
+        if (!password.equals(confirm)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Паролі мають збігатися");
+        }
+        if (password.length() < MIN_PASSWORD_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Пароль має містити щонайменше " + MIN_PASSWORD_LENGTH + " символів");
+        }
+    }
+
+    /**
+     * Те саме обмеження на роздільник полів, що й у {@code UserStore}, але
+     * як 400, а не 500: сюди значення приходить із форми, тож користувач
+     * має побачити зрозумілу відмову, а не Whitelabel Error Page.
+     */
+    private static void requireStorable(String value, String fieldLabel) {
+        try {
+            UserStore.requireStorable(value, fieldLabel);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     @PostMapping("/admin/users/{username}/link")
     public String link(@PathVariable String username, @RequestParam(required = false) String linkedEngineer) {
         UserStore.StoredUser existing = requireUser(username);
-        UserStore.writeUser(usersFile, username, existing.passwordHash(), existing.role(), normalizeLink(linkedEngineer));
+        String link = normalizeLink(linkedEngineer);
+        requireStorable(link, "Ім'я прив'язаного інженера");
+        UserStore.writeUser(usersFile, username, existing.passwordHash(), existing.role(), link);
         return "redirect:/admin/users";
     }
 
@@ -134,9 +177,7 @@ public class UserAdminController {
     public String resetPassword(@PathVariable String username, @RequestParam String password,
                                  @RequestParam String confirm) {
         UserStore.StoredUser existing = requireUser(username);
-        if (!password.equals(confirm) || password.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Паролі мають збігатися й бути непорожніми");
-        }
+        requirePasswordPair(password, confirm);
         UserStore.writeUser(usersFile, username, passwordEncoder.encode(password), existing.role());
         return "redirect:/admin/users";
     }

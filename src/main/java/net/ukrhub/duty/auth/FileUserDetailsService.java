@@ -45,7 +45,7 @@ public class FileUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) {
         UserStore.StoredUser stored = UserStore.readUsers(usersFile).get(username);
         if (stored == null) {
-            throw new UsernameNotFoundException("Користувача не знайдено: " + username);
+            throw new UsernameNotFoundException("User not found: " + username);
         }
         return User.withUsername(username)
                 .password(stored.passwordHash())
